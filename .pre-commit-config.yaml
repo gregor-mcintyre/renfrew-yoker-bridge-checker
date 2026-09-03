@@ -1,0 +1,25 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.5
+    hooks:
+      - id: ruff
+        args: [ --no-fix ]
+      - id: ruff-format
+        args: [ --check ]
+
+  # mypy must stay recent enough to accept python_version = "3.14"; the 1.x line
+  # rejects it. Type stubs get added to additional_dependencies alongside the
+  # feature that first needs them.
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v2.3.1
+    hooks:
+      - id: mypy
+
+  - repo: local
+    hooks:
+      - id: vulture
+        name: vulture
+        entry: vulture --min-confidence 80
+        language: system
+        types: [ python ]
+        pass_filenames: true

@@ -1,0 +1,4 @@
+# Normalise all text files to LF in the repository. The Pi refresher and the
+# Lambda both run on Linux; development is on Windows. Without this, checkouts
+# on Windows would rewrite line endings and produce noisy whitespace diffs.
+* text=auto eol=lf

@@ -1,0 +1,21 @@
+# Python bytecode
+__pycache__/
+*.pyc
+
+# Tooling caches (Ruff, mypy, pytest)
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+
+# Virtual environment
+.venv/
+
+# Metadata written by `pip install -e .`
+*.egg-info/
+
+# Editor and IDE project files
+.idea/
+.vscode/
+
+# Claude Code local, per-machine settings (a shared .claude/settings.json can still be committed)
+.claude/settings.local.json

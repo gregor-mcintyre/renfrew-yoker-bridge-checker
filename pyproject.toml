@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "renfrew-yoker-bridge-checker"
+version = "0.0.0"
+description = "Check when the Renfrew-Yoker bridge is closed by asking Amazon Alexa."
+requires-python = ">=3.14"
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "ruff",
+    "mypy",
+    "vulture",
+    "pre-commit",
+]
+
+[tool.setuptools]
+py-modules = []
+
+[tool.pytest.ini_options]
+pythonpath = ["shared", "pi_refresher", "alexa_lambda"]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "D", "N", "UP"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.isort]
+force-single-line = true
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/test_*.py" = ["D100", "D101", "D102", "D103"]
+"**/__init__.py" = ["D104"]
+
+[tool.mypy]
+strict = true
+python_version = "3.14"
+mypy_path = ["shared", "pi_refresher", "alexa_lambda"]
+
+[tool.vulture]
+min_confidence = 80
