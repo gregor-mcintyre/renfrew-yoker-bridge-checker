@@ -13,8 +13,9 @@ from bridge_closures._fetching import (
     _raise_if_request_failed,
     fetch_webpage_text,
 )
+from tests.unit.raspberry_pi.bridge_closures import _patch_targets
 
-_FETCHING_MODULE = "bridge_closures._fetching"
+_FETCHING_MODULE = _patch_targets.BRIDGE_CLOSURES_PACKAGE + "._fetching"
 _REQUESTS_GET = f"{_FETCHING_MODULE}.requests.get"
 _BEAUTIFUL_SOUP = f"{_FETCHING_MODULE}.BeautifulSoup"
 
@@ -187,7 +188,7 @@ class TestFetchWebpageText:
         mock_requests_get.return_value = mock_successful_response
         mock_get_text = mock_beautiful_soup.return_value.get_text
 
-        page_text = fetch_webpage_text()
+        result = fetch_webpage_text()
 
         mock_get_text.assert_called_once_with(separator="\n")
-        assert page_text == mock_get_text.return_value
+        assert result == mock_get_text.return_value
