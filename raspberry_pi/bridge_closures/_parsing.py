@@ -1,4 +1,14 @@
-"""Parses closures from text displayed on the Renfrew-Yoker bridge closures webpage."""
+"""Parses closures from text displayed on the Renfrew-Yoker bridge closures webpage.
+
+The webpage has a few known formatting inconsistencies, each of which are handled:
+
+    - The ordinal suffix on a date is sometimes present, e.g. `8th`, and sometimes
+      absent, e.g. `8`.
+    - The hour and minutes of a closure time are separated by either a colon, e.g.
+      `8:30am`, or a dot, e.g. `8.30am`.
+    - A time range is sometimes prefixed with `From`, e.g. `From 8am to 9am`, and
+      sometimes not, e.g. `8am to 9am`.
+"""
 
 import calendar
 import re
@@ -13,45 +23,40 @@ _MONTH_NUMBER_BY_NAME = {
 _MONTH_NAMES = "|".join(_MONTH_NUMBER_BY_NAME)
 _DAY_NAMES = "|".join(calendar.day_name)
 
-_DAY_ORDINAL_SUFFIX = r"(?:st|nd|rd|th)?"
+# Matches a date heading such as "Friday 11th September 2026" or "Friday 11 September
+# 2026". The ordinal suffix is optional.
+_DATE_HEADING = (
+    rf"(?:{_DAY_NAMES})\s+(?P<day>\d{{1,2}})(?:st|nd|rd|th)?\s+"
+    rf"(?P<month>{_MONTH_NAMES})\s+(?P<year>\d{{4}})"
+)
 
-# Matches a closure time such as "8:30am" or "9pm"
-_TIME_PATTERN = r"\d{1,2}(?::\d{2})?[ap]m"
+# Matches a closure time such as "8am", "8:30am", or "9.45pm". The minutes are optional
+# and can be separated by a colon or a dot.
+_TIME = r"\d{1,2}(?:[:.]\d{2})?[ap]m"
 
-# Matches a date line ("Tuesday 8th September 2026") followed, within a short span of
-# text, by a "From X to [<end date>] Y" time line. The {0,200} gap tolerates the blank
-# line and indentation between the two without matching unrelated closures further down
-# the page. The end-date group is optional and is only present when the end time is the
-# next day. When absent, an end time earlier than the start time is treated as an
-# implicit rollover past midnight instead.
-_CLOSURE_PATTERN = re.compile(
-    rf"(?:{_DAY_NAMES})\s+(?P<start_day>\d{{1,2}}){_DAY_ORDINAL_SUFFIX}\s+"
-    rf"(?P<start_month>{_MONTH_NAMES})\s+(?P<start_year>\d{{4}})"
-    r".{0,200}?"
-    rf"From\s+(?P<start_time>{_TIME_PATTERN})\s+to\s+"
-    rf"(?:(?:{_DAY_NAMES})\s+(?P<end_day>\d{{1,2}}){_DAY_ORDINAL_SUFFIX}\s+"
-    rf"(?P<end_month>{_MONTH_NAMES})\s+(?P<end_year>\d{{4}})\s+)?"
-    rf"(?P<end_time>{_TIME_PATTERN})",
-    re.DOTALL,
+# Matches a "[From] X to Y" time range. The leading "From" is optional.
+_TIME_RANGE = rf"(?:From\s+)?(?P<start_time>{_TIME})\s+to\s+(?P<end_time>{_TIME})"
+
+_DATE_HEADING_OR_TIME_RANGE_PATTERN = re.compile(
+    rf"(?P<date_heading>{_DATE_HEADING})|{_TIME_RANGE}",
 )
 
 _LONDON_TZ = ZoneInfo("Europe/London")
 
 
-def _build_date_from_match(match: re.Match[str], prefix: str) -> date:
-    """Builds a `date` from the day, month, and year of `match`.
+def _build_date_from_match(match: re.Match[str]) -> date:
+    """Builds a `date` from the day, month, and year groups of `match`.
 
     Args:
-        match: A `_CLOSURE_PATTERN` match against the text displayed on the webpage.
-        prefix: Which date to build. Either `"start"` or `"end"`.
+        match: A `_DATE_HEADING_OR_TIME_RANGE_PATTERN` match against a date heading.
 
     Returns:
-        The date representing the day, month, and year from `match`.
+        The date represented by the day, month, and year groups of `match`.
     """
     return date(
-        int(match[f"{prefix}_year"]),
-        _MONTH_NUMBER_BY_NAME[match[f"{prefix}_month"]],
-        int(match[f"{prefix}_day"]),
+        int(match["year"]),
+        _MONTH_NUMBER_BY_NAME[match["month"]],
+        int(match["day"]),
     )
 
 
@@ -60,8 +65,9 @@ def _parse_time(raw: str) -> time:
 
     Handles the following time formats:
 
-        - `8:00am`
-        - `10pm`
+        - `8am`
+        - `8:30am`
+        - `10.45pm`
 
     Args:
         raw: The time as displayed on the webpage.
@@ -69,53 +75,26 @@ def _parse_time(raw: str) -> time:
     Returns:
         The closure time displayed on the webpage parsed into a `time`.
     """
-    normalised = raw if ":" in raw else f"{raw[:-2]}:00{raw[-2:]}"
+    normalised = raw.replace(".", ":")
+
+    if ":" not in normalised:
+        normalised = f"{normalised[:-2]}:00{normalised[-2:]}"
 
     return datetime.strptime(normalised, "%I:%M%p").time()
 
 
-def _build_end_date_from_match_if_provided(match: re.Match[str]) -> date | None:
-    """Builds the end date of a closure, if one is explicitly displayed on the webpage.
-
-    This can occur when the closure extends past midnight.
-
-    Args:
-        match: A `_CLOSURE_PATTERN` match against the text displayed on the webpage.
-
-    Returns:
-        `None` if the match had no explicit end date; otherwise `_build_date_from_match`
-        with the `"end"` prefix.
-    """
-    if match["end_year"] is None:
-        return None
-
-    return _build_date_from_match(match, "end")
-
-
-def _resolve_end_date(
-    *,
-    start_date: date,
-    start_time: time,
-    end_time: time,
-    end_date: date | None,
-) -> date:
+def _resolve_end_date(*, start_date: date, start_time: time, end_time: time) -> date:
     """Resolves the closure end date.
 
     Args:
         start_date: The start date of the closure.
         start_time: The start time of the closure.
         end_time: The end time of the closure.
-        end_date: The end date of the closure, if one is explicitly displayed on the
-            webpage. This can occur when the closure extends past midnight.
 
     Returns:
-        `end_date` if provided, `start_date` advanced by one day when `end_time` is
-        earlier than `start_time` (the closure runs past midnight), otherwise
-        `start_date` unchanged.
+        `start_date` advanced by one day when `end_time` is earlier than `start_time`
+        (the closure runs past midnight), otherwise `start_date` unchanged.
     """
-    if end_date is not None:
-        return end_date
-
     if end_time < start_time:
         return start_date + timedelta(days=1)
 
@@ -142,24 +121,23 @@ def _build_bridge_closure_with_london_timezone(
     )
 
 
-def _build_closure_from_match(match: re.Match[str]) -> BridgeClosure:
-    """Builds a `BridgeClosure` from a `_CLOSURE_PATTERN` match.
+def _build_closure_from_match(start_date: date, match: re.Match[str]) -> BridgeClosure:
+    """Builds a `BridgeClosure` from `start_date` and a time range match.
 
     Args:
-        match: A `_CLOSURE_PATTERN` match against the text displayed on the webpage.
+        start_date: The date of the heading `match` was found under.
+        match: A `_DATE_HEADING_OR_TIME_RANGE_PATTERN` match against a time range.
 
     Returns:
-        `_build_bridge_closure_with_london_timezone` for the start and end dates and
-        times from `match`.
+        `_build_bridge_closure_with_london_timezone` for `start_date`, the end date
+        resolved from `match`, and the start and end times from `match`.
     """
-    start_date = _build_date_from_match(match, "start")
     start_time = _parse_time(match["start_time"])
     end_time = _parse_time(match["end_time"])
     end_date = _resolve_end_date(
         start_date=start_date,
         start_time=start_time,
         end_time=end_time,
-        end_date=_build_end_date_from_match_if_provided(match),
     )
 
     return _build_bridge_closure_with_london_timezone(
@@ -171,13 +149,25 @@ def _build_closure_from_match(match: re.Match[str]) -> BridgeClosure:
 def parse_bridge_closures(webpage_text: str) -> list[BridgeClosure]:
     """Parses closures from text displayed on the Renfrew-Yoker bridge closures webpage.
 
+    The webpage is read in order: each date heading puts a new date in scope, and every
+    time range after it is a closure on that date. A time range found before the first
+    date heading has no date, so is ignored.
+
     Args:
         webpage_text: The text displayed on the webpage.
 
     Returns:
-        Closures parsed from the webpage.
+        `_build_closure_from_match` for every time range found under a date heading.
     """
-    return [
-        _build_closure_from_match(match)
-        for match in _CLOSURE_PATTERN.finditer(webpage_text)
-    ]
+    closures: list[BridgeClosure] = []
+    start_date: date | None = None
+
+    for match in _DATE_HEADING_OR_TIME_RANGE_PATTERN.finditer(webpage_text):
+        if match["date_heading"]:
+            start_date = _build_date_from_match(match)
+
+        elif start_date is not None:
+            closure = _build_closure_from_match(start_date, match)
+            closures.append(closure)
+
+    return closures

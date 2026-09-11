@@ -13,9 +13,9 @@ from bridge_closures._fetching import (
     _raise_if_request_failed,
     fetch_webpage_text,
 )
-from tests.unit.raspberry_pi.bridge_closures import _patch_targets
+from tests import patch_targets
 
-_FETCHING_MODULE = _patch_targets.BRIDGE_CLOSURES_PACKAGE + "._fetching"
+_FETCHING_MODULE = patch_targets.BRIDGE_CLOSURES_PACKAGE + "._fetching"
 _REQUESTS_GET = f"{_FETCHING_MODULE}.requests.get"
 _BEAUTIFUL_SOUP = f"{_FETCHING_MODULE}.BeautifulSoup"
 
