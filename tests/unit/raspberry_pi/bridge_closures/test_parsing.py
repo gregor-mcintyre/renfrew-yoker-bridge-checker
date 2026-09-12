@@ -13,21 +13,15 @@ from bridge_closures._parsing import (
     _resolve_end_date,
     parse_bridge_closures,
 )
-from tests import patch_targets
+from tests import closures_webpage_text, patch_targets
 
 _PARSING_MODULE = patch_targets.BRIDGE_CLOSURES_PACKAGE + "._parsing"
 
-_DATE_LINE = "Tuesday 8th September 2026"
-_DATE_LINE_WITHOUT_ORDINAL_SUFFIX = "Tuesday 8 September 2026"
-_SECOND_DATE_LINE = "Wednesday 9th September 2026"
-_NO_CLOSURES_LINE = "No Closures Currently Planned."
-
-_SAME_DAY_TIME_RANGE = "From 11am to 12:30pm"
 _ROLLOVER_START_TIME = "11pm"
 _ROLLOVER_END_TIME = "1am"
 _IMPLICIT_ROLLOVER_TIME_RANGE = f"From {_ROLLOVER_START_TIME} to {_ROLLOVER_END_TIME}"
 
-_START_DATE = date(2026, 9, 8)
+_START_DATE = date(2026, 9, 12)
 
 
 def _first_match(displayed_text: str) -> re.Match[str]:
@@ -49,12 +43,12 @@ def _first_match(displayed_text: str) -> re.Match[str]:
 
 class TestBuildDateFromMatch:
     def test_time_with_ordinal_suffix_returns_the_date(self):
-        match = _first_match(_DATE_LINE)
+        match = _first_match(closures_webpage_text.DATE_HEADING)
 
         assert _build_date_from_match(match) == _START_DATE
 
     def test_time_without_ordinal_suffix_returns_the_date(self):
-        match = _first_match(_DATE_LINE_WITHOUT_ORDINAL_SUFFIX)
+        match = _first_match("Saturday 12 September 2026")
 
         assert _build_date_from_match(match) == _START_DATE
 
@@ -131,7 +125,7 @@ def test_build_closure_from_match_delegates_each_step_and_returns_the_built_clos
         end_time=end_time,
     )
     mock_build_bridge_closure.assert_called_once_with(
-        start=datetime(2026, 9, 8, 23),
+        start=datetime(2026, 9, 12, 23),
         end=datetime(2026, 9, 9, 1),
     )
 
@@ -146,7 +140,7 @@ class TestParseBridgeClosures:
         mock_build_date_from_match,
         mock_build_closure_from_match,
     ):
-        result = parse_bridge_closures(_NO_CLOSURES_LINE)
+        result = parse_bridge_closures(closures_webpage_text.NO_CLOSURES_LINE)
 
         assert result == []
 
@@ -155,7 +149,7 @@ class TestParseBridgeClosures:
         mock_build_date_from_match,
         mock_build_closure_from_match,
     ):
-        result = parse_bridge_closures(_SAME_DAY_TIME_RANGE)
+        result = parse_bridge_closures(closures_webpage_text.TIME_RANGE)
 
         assert result == []
 
@@ -164,7 +158,10 @@ class TestParseBridgeClosures:
         mock_build_date_from_match,
         mock_build_closure_from_match,
     ):
-        result = parse_bridge_closures(f"{_DATE_LINE}\n\n{_NO_CLOSURES_LINE}")
+        result = parse_bridge_closures(
+            f"{closures_webpage_text.DATE_HEADING}"
+            f"\n\n{closures_webpage_text.NO_CLOSURES_LINE}",
+        )
 
         assert result == []
 
@@ -173,7 +170,10 @@ class TestParseBridgeClosures:
         mock_build_date_from_match,
         mock_build_closure_from_match,
     ):
-        webpage_text = f"<h3>{_DATE_LINE}</h3>\n  <p>\n{_SAME_DAY_TIME_RANGE}</p>"
+        webpage_text = (
+            f"<h3>{closures_webpage_text.DATE_HEADING}</h3>"
+            f"\n  <p>\n{closures_webpage_text.TIME_RANGE}</p>"
+        )
 
         result = parse_bridge_closures(webpage_text)
 
@@ -184,7 +184,9 @@ class TestParseBridgeClosures:
         mock_build_date_from_match,
         mock_build_closure_from_match,
     ):
-        result = parse_bridge_closures(f"{_DATE_LINE}\n\nFrom 8.00am to 9.00pm")
+        result = parse_bridge_closures(
+            f"{closures_webpage_text.DATE_HEADING}\n\nFrom 8.00am to 9.00pm",
+        )
 
         assert result == [mock_build_closure_from_match.return_value]
 
@@ -193,7 +195,9 @@ class TestParseBridgeClosures:
         mock_build_date_from_match,
         mock_build_closure_from_match,
     ):
-        result = parse_bridge_closures(f"{_DATE_LINE}\n\n8am to 9am")
+        result = parse_bridge_closures(
+            f"{closures_webpage_text.DATE_HEADING}\n\n8am to 9am",
+        )
 
         assert result == [mock_build_closure_from_match.return_value]
 
@@ -205,8 +209,10 @@ class TestParseBridgeClosures:
         first_date = Mock()
         second_date = Mock()
         webpage_text = (
-            f"{_DATE_LINE}\n{_SAME_DAY_TIME_RANGE}\n"
-            f"{_SECOND_DATE_LINE}\n{_IMPLICIT_ROLLOVER_TIME_RANGE}"
+            f"{closures_webpage_text.DATE_HEADING}"
+            f"\n{closures_webpage_text.TIME_RANGE}\n"
+            f"{'Sunday 13th September 2026'}"
+            f"\n{_IMPLICIT_ROLLOVER_TIME_RANGE}"
         )
 
         mock_build_date_from_match.side_effect = [first_date, second_date]
@@ -226,7 +232,9 @@ class TestParseBridgeClosures:
         first_closure = Mock()
         second_closure = Mock()
         webpage_text = (
-            f"{_DATE_LINE}\n{_SAME_DAY_TIME_RANGE}\n{_IMPLICIT_ROLLOVER_TIME_RANGE}"
+            f"{closures_webpage_text.DATE_HEADING}"
+            f"\n{closures_webpage_text.TIME_RANGE}"
+            f"\n{_IMPLICIT_ROLLOVER_TIME_RANGE}"
         )
 
         mock_build_closure_from_match.side_effect = [first_closure, second_closure]
