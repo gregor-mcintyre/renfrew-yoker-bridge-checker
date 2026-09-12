@@ -10,7 +10,7 @@ from bridge_closure import BridgeClosure
 from bridge_closures._fetching import WebpageUnavailableError
 from bridge_closures._parsing import _LONDON_TZ
 from bridge_closures.current import get_current_bridge_closures
-from tests import closures_webpage_text, patch_targets
+from tests import closures_webpage_text, patch_target
 
 _PAGE_WITHOUT_CLOSURE = f"""
 <div class="article">
@@ -51,7 +51,7 @@ def _build_response(body: str = "", *, status_code: int = 200) -> requests.Respo
     return response
 
 
-@patch(patch_targets.BRIDGE_CLOSURES_PACKAGE + "._fetching.requests.get")
+@patch(patch_target.BRIDGE_CLOSURES_PACKAGE + "._fetching.requests.get")
 class TestGetCurrentBridgeClosures:
     def test_unreachable_webpage_raises_webpage_unavailable_error(
         self,

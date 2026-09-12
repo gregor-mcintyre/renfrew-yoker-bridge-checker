@@ -4,9 +4,9 @@ from unittest.mock import Mock, patch
 
 from bridge_closure import BridgeClosure
 from bridge_closures.current import _log, get_current_bridge_closures
-from tests import patch_targets
+from tests import patch_target
 
-_CURRENT_MODULE = patch_targets.BRIDGE_CLOSURES_PACKAGE + ".current"
+_CURRENT_MODULE = patch_target.BRIDGE_CLOSURES_PACKAGE + ".current"
 
 
 class TestLog:

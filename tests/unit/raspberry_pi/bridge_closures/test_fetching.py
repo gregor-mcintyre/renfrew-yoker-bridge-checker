@@ -13,9 +13,9 @@ from bridge_closures._fetching import (
     _raise_if_request_failed,
     fetch_webpage_text,
 )
-from tests import patch_targets
+from tests import patch_target
 
-_FETCHING_MODULE = patch_targets.BRIDGE_CLOSURES_PACKAGE + "._fetching"
+_FETCHING_MODULE = patch_target.BRIDGE_CLOSURES_PACKAGE + "._fetching"
 _REQUESTS_GET = f"{_FETCHING_MODULE}.requests.get"
 _BEAUTIFUL_SOUP = f"{_FETCHING_MODULE}.BeautifulSoup"
 
@@ -23,7 +23,7 @@ _FAILED_STATUS_CODE = 500
 
 
 @pytest.fixture
-def mock_failed_response():
+def mock_failed_response() -> Mock:
     """A mocked `requests.Response` from a failed request.
 
     `ok` is `False`, `status_code` is an error code, and `text` is not set.
@@ -32,7 +32,7 @@ def mock_failed_response():
 
 
 @pytest.fixture
-def mock_successful_response():
+def mock_successful_response() -> Mock:
     """A mocked `requests.Response` from a successful request.
 
     `ok` is `True` and `text` is not set.
