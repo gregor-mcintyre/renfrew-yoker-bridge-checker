@@ -12,9 +12,9 @@ page: https://www1.renfrewshire.gov.uk/article/14478/Check-when-Renfrew-Bridge-i
 - [How it works](#how-it-works)
 - [Requirements](#requirements)
 - [Installation](#installation)
-- [Testing](#testing)
-- [Project Structure](#project-structure)
+- [Running the tests](#running-the-tests)
 - [Tooling](#tooling)
+- [Deployment](#deployment)
 - [Contributing](#contributing)
 
 ---
@@ -46,12 +46,12 @@ flowchart LR
     E -->|spoken answer| D
 ```
 
-A Raspberry Pi on home broadband scrapes the bridge closures page on a systemd timer and
-writes the parsed closures to **AWS SSM Parameter Store** - a managed key-value store,
-used here purely as a small, durable cache. The Alexa-facing Lambda only ever reads that
-cache, so it answers in milliseconds regardless of how long the last scrape took.
+A Raspberry Pi on home broadband scrapes the bridge closures page every fifteen minutes
+and writes the parsed closures to **AWS SSM Parameter Store** - a managed key-value
+store, used here purely as a small, durable cache. The Alexa-facing Lambda only ever
+reads that cache.
 
-The scheduled refresh and the voice handler are deliberately kept as separate
+The scheduled scrape and the voice handler are deliberately kept as separate
 deployables. They fail independently: a scrape that breaks leaves the last good cache in
 place, and Alexa keeps answering.
 
@@ -86,19 +86,42 @@ pre-commit install
 
 ---
 
-## Testing
+## Running the tests
 
-Tests follow a three-tier model - unit, integration, and end-to-end - described in full
-in `CLAUDE.md`.
+Tests are split into unit, integration and end-to-end tiers. The conventions behind that
+split are documented in `CLAUDE.md`.
 
----
+```bash
+# The whole test suite:
+pytest
 
-## Project Structure
+# A single tier:
+pytest tests/unit
+pytest tests/integration
+pytest tests/e2e
 
-There is no single importable package. The project is a set of independent deployment
-roots - one top-level directory per target runtime (a Raspberry Pi systemd timer, an AWS
-Lambda zip), each flat-imported the way that runtime expects. The `pythonpath` setting
-in `pyproject.toml` lets the tests import across those roots without a `src/` layout.
+# A single file:
+pytest tests/unit/raspberry_pi/bridge_closures/test_parsing.py
+
+# A single test:
+pytest -k test_parses_a_single_closure
+```
+
+### Test Coverage
+
+Coverage reports show how much of the codebase is exercised by tests. Generate coverage
+with `pytest-cov`:
+
+```bash
+# Coverage for the whole test suite, printed to the terminal:
+pytest --cov=shared --cov=raspberry_pi --cov=alexa_lambda
+
+# Coverage with an HTML report (open htmlcov/index.html in a browser):
+pytest --cov=shared --cov=raspberry_pi --cov=alexa_lambda --cov-report=html
+
+# Coverage for a single tier:
+pytest tests/unit --cov=shared --cov=raspberry_pi --cov=alexa_lambda
+```
 
 ---
 
@@ -106,10 +129,10 @@ in `pyproject.toml` lets the tests import across those roots without a `src/` la
 
 On every `git commit`, Ruff (lint + format), mypy (type-checking) and vulture (dead
 code) run automatically via pre-commit. They report issues without auto-fixing. If a
-hook fails, fix the flagged lines by hand, re-stage, and re-commit.
+hook fails, fix the flagged lines by hand, then re-commit.
 
 ```bash
-# Run everything manually against all files:
+# Run every hook manually against all files:
 pre-commit run --all-files
 ```
 
@@ -118,141 +141,17 @@ for the naming, docstring and testing conventions this project follows.
 
 ---
 
+## Deployment
+
+# TODO: Fill this section in once deployment is underway.
+
+---
+
 ## Contributing
 
-This project uses the **Git Flow** branching model where each branch has a unique
-purpose ([see more on this later](#branch-structure)).
+This project uses the **Git Flow** branching model. See
+[CONTRIBUTING.md](CONTRIBUTING.md) for the branch structure, the workflow for features,
+releases and hotfixes, and how to get `git-flow` installed.
 
-### Prerequisites
-
-- The `git-flow` extension installed ([see below](#initialising-git-flow))
-
-### Installing Git Flow
-
-Follow the official installation guide for your platform:
-[git-flow installation instructions](https://github.com/nvie/gitflow/wiki/Installation)
-
-Verify the install:
-
-```bash
-git flow version
-```
-
-### Initialising Git Flow
-
-From the root of the repository, run:
-
-```bash
-git flow init
-```
-
-You'll be prompted to name each branch type. **Accept the defaults** for consistency
-with the rest of the team:
-
-```
-Branch name for production releases: [main]
-Branch name for "next release" development: [develop]
-Feature branch prefix: [feature/]
-Release branch prefix: [release/]
-Hotfix branch prefix: [hotfix/]
-Support branch prefix: [support/]
-Version tag prefix: []
-```
-
-### Branch Structure
-
-| Branch      | Purpose                                                                                                                                           |
-|-------------|---------------------------------------------------------------------------------------------------------------------------------------------------|
-| `main`      | Production-ready code only. Every commit here is deployable and typically tagged with a release version.                                          |
-| `develop`   | The integration branch for ongoing work. All finished features land here before a release is released.                                            |
-| `feature/*` | Short-lived branches for individual features, backlog items, or bug work. Branched from and merged back into `develop`.                           |
-| `release/*` | Created when preparing a new version. Used for final stabilisation, version bumps, and release-only fixes. Merged into both `main` and `develop`. |
-| `hotfix/*`  | Urgent, isolated fixes for production issues. Branched from `main`, merged into both `main` and `develop`.                                        |
-
-### Workflow
-
-#### Feature Branches
-
-Use for new features.
-
-```
-# Create a new feature
-git flow feature start <feature-name>
-
-# Publish it so it is visible to others
-git flow feature publish <feature-name>
-
-# Or pull another feature
-git flow feature pull origin <feature-name>
-
-# Commit and push as you go
-git commit -m "Add feature description"
-git push
-
-# Finish the feature (merges into develop and deletes the feature branch)
-git flow feature finish <feature-name>
-git push
-```
-
-#### Release Branches
-
-Use when preparing a new version for deployment. A release branch can bundle one or more
-completed features.
-
-```
-# Create a new release
-git flow release start <0.1.2>
-
-# Publish it so it is visible to others
-git flow release publish <0.1.2>
-
-# Make any last-minute release fixes directly on the release branch
-git commit -m "Final fixes for release v0.1.2"
-git push
-
-# Finish the release (merges into main and develop, and tags the release)
-git flow release finish <0.1.2> -m "Release v0.1.2"
-git push
-
-# Resolve any merge conflicts, then push
-git push
-
-# Push the tagged release
-git checkout main
-git push --tags
-```
-
-#### Hotfix Branches
-
-Use for urgent production fixes.
-
-```
-# Create a hotfix from main
-git flow hotfix start <hotfix-name>
-
-# Publish it so it is visible to others
-git flow hotfix publish <hotfix-name>
-
-# Or pull another hotfix
-git pull origin hotfix/<hotfix-name>
-
-# Commit and push as you go
-git commit -m "Fix critical issue"
-git push
-
-# Finish the hotfix (merges into main and develop, and tags the release)
-git flow hotfix finish <hotfix-name> -m "Hotfix v0.1.2"
-git push
-
-# Resolve any merge conflicts, then push
-git push
-
-# Push the hotfix release
-git checkout main
-git push --tags
-```
-
-### More Information
-
-- [Branching Model](https://endjin.com/blog/a-step-by-step-guide-to-using-gitflow-with-teamcity-part-2-gitflow-a-branching-model-for-a-release-cycle)
-- [A successful Git branching model](http://nvie.com/posts/a-successful-git-branching-model/)
+Code conventions - naming, docstrings, testing and commit messages - are documented in
+[CLAUDE.md](CLAUDE.md).
