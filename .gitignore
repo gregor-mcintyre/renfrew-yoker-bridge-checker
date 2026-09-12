@@ -19,3 +19,7 @@ __pycache__/
 
 # Claude Code local, per-machine settings (a shared .claude/settings.json can still be committed)
 .claude/settings.local.json
+
+# Test coverage
+.coverage
+htmlcov/

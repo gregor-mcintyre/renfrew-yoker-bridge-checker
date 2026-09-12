@@ -7,10 +7,15 @@ name = "renfrew-yoker-bridge-checker"
 version = "0.0.0"
 description = "Check when the Renfrew-Yoker bridge is closed by asking Amazon Alexa."
 requires-python = ">=3.14"
-dependencies = []
+dependencies = [
+    "requests",
+    "beautifulsoup4",
+]
 
 [project.optional-dependencies]
 dev = [
+    "pytest",
+    "pytest-cov",
     "ruff",
     "mypy",
     "vulture",
@@ -21,20 +26,19 @@ dev = [
 py-modules = []
 
 [tool.pytest.ini_options]
-pythonpath = ["shared", "pi_refresher", "alexa_lambda"]
+pythonpath = ["shared", "raspberry_pi", "alexa_lambda"]
 testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 88
+src = ["shared", "raspberry_pi", "alexa_lambda"]
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "D", "N", "UP"]
+select = ["E", "F", "I", "D", "N", "UP", "COM812"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
-[tool.ruff.lint.isort]
-force-single-line = true
 
 [tool.ruff.format]
 quote-style = "double"
@@ -46,7 +50,16 @@ quote-style = "double"
 [tool.mypy]
 strict = true
 python_version = "3.14"
-mypy_path = ["shared", "pi_refresher", "alexa_lambda"]
+mypy_path = ["shared", "raspberry_pi", "alexa_lambda"]
+
+# Test functions carry no annotations, so the two rules that would demand them are off.
+# The rest of `strict` still applies: `check_untyped_defs` keeps type-checking test
+# bodies, and calls into production code are still checked against its signatures.
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
 
 [tool.vulture]
 min_confidence = 80
+exclude = [".venv"]
