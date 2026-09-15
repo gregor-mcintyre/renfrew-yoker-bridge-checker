@@ -1,18 +1,11 @@
 # renfrew-yoker-bridge-checker
 
-<!-- Project settings: fill these in for each project. The git plugin commits, merges and tags as the Git identity, and stops to ask while it is still the placeholder. -->
-
 - **Git identity:** Gregor McIntyre <gregor.mcintyre@aol.co.uk>
 - **What it is:** An Alexa skill that reports when the Renfrew-Yoker pedestrian bridge
   is closed. A Raspberry Pi scrapes the council site on a schedule and caches the result
   in AWS SSM Parameter Store; an AWS Lambda reads that cache to answer voice requests
   inside Alexa's 8-second window.
 - **Python:** 3.14
-
-These conventions are the standard for this project — flag mismatches with existing
-code or config instead of imitating them. Testing and version-control rules live in the
-`write-test` and `git` plugins, which override this file; load the matching skill before
-writing tests or touching git.
 
 On Python 3.14+, never write `from __future__ import annotations`; PEP 649/749 make it
 unnecessary.
