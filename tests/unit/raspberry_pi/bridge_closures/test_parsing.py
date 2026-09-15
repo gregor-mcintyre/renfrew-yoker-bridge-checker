@@ -2,10 +2,9 @@ import re
 from datetime import date, datetime, time, timedelta
 from unittest.mock import ANY, Mock, call, patch
 
-from bridge_closure import BridgeClosure
+from bridge_closure import LONDON_TZ, BridgeClosure
 from bridge_closures._parsing import (
     _DATE_HEADING_OR_TIME_RANGE_PATTERN,
-    _LONDON_TZ,
     _build_bridge_closure_with_london_timezone,
     _build_closure_from_match,
     _build_date_from_match,
@@ -91,8 +90,8 @@ def test_build_bridge_closure_with_london_timezone_sets_london_timezone_on_both_
     result = _build_bridge_closure_with_london_timezone(start=start, end=end)
 
     assert result == BridgeClosure(
-        start=start.replace(tzinfo=_LONDON_TZ),
-        end=end.replace(tzinfo=_LONDON_TZ),
+        start=start.replace(tzinfo=LONDON_TZ),
+        end=end.replace(tzinfo=LONDON_TZ),
     )
 
 

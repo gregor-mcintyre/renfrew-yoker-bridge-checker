@@ -1,7 +1,10 @@
-"""Defines the data structure for a Renfrew-Yoker bridge closure."""
+"""Defines the data structure and timezone of a Renfrew-Yoker bridge closure."""
 
 from dataclasses import dataclass
 from datetime import datetime
+from zoneinfo import ZoneInfo
+
+LONDON_TZ = ZoneInfo("Europe/London")
 
 
 @dataclass

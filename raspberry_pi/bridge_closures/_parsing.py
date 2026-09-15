@@ -13,9 +13,8 @@ The webpage has a few known formatting inconsistencies, each of which are handle
 import calendar
 import re
 from datetime import date, datetime, time, timedelta
-from zoneinfo import ZoneInfo
 
-from bridge_closure import BridgeClosure
+from bridge_closure import LONDON_TZ, BridgeClosure
 
 _MONTH_NUMBER_BY_NAME = {
     name: number for number, name in enumerate(calendar.month_name) if number
@@ -40,8 +39,6 @@ _TIME_RANGE = rf"(?:From\s+)?(?P<start_time>{_TIME})\s+to\s+(?P<end_time>{_TIME}
 _DATE_HEADING_OR_TIME_RANGE_PATTERN = re.compile(
     rf"(?P<date_heading>{_DATE_HEADING})|{_TIME_RANGE}",
 )
-
-_LONDON_TZ = ZoneInfo("Europe/London")
 
 
 def _build_date_from_match(match: re.Match[str]) -> date:
@@ -116,8 +113,8 @@ def _build_bridge_closure_with_london_timezone(
         A `BridgeClosure` where the timezone of both times is set to `Europe/London`.
     """
     return BridgeClosure(
-        start=start.replace(tzinfo=_LONDON_TZ),
-        end=end.replace(tzinfo=_LONDON_TZ),
+        start=start.replace(tzinfo=LONDON_TZ),
+        end=end.replace(tzinfo=LONDON_TZ),
     )
 
 

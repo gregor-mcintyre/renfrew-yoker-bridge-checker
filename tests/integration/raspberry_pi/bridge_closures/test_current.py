@@ -6,9 +6,8 @@ from unittest.mock import patch
 import pytest
 import requests
 
-from bridge_closure import BridgeClosure
+from bridge_closure import LONDON_TZ, BridgeClosure
 from bridge_closures._fetching import WebpageUnavailableError
-from bridge_closures._parsing import _LONDON_TZ
 from bridge_closures.current import get_current_bridge_closures
 from tests import closures_webpage_text, patch_target
 
@@ -85,7 +84,7 @@ class TestGetCurrentBridgeClosures:
 
         assert result == [
             BridgeClosure(
-                start=datetime(2026, 9, 12, 9, tzinfo=_LONDON_TZ),
-                end=datetime(2026, 9, 12, 12, 30, tzinfo=_LONDON_TZ),
+                start=datetime(2026, 9, 12, 9, tzinfo=LONDON_TZ),
+                end=datetime(2026, 9, 12, 12, 30, tzinfo=LONDON_TZ),
             ),
         ]
