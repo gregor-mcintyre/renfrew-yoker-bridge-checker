@@ -89,7 +89,8 @@ pre-commit install
 ## Running the tests
 
 Tests are split into unit, integration and end-to-end tiers. The conventions behind that
-split are documented in `CLAUDE.md`.
+split are documented in `tests/CLAUDE.md`, which is also where the canonical commands
+live if these drift.
 
 ```bash
 # The whole test suite:
@@ -137,7 +138,8 @@ pre-commit run --all-files
 ```
 
 Actual settings live in `pyproject.toml` and `.pre-commit-config.yaml`. See `CLAUDE.md`
-for the naming, docstring and testing conventions this project follows.
+for the naming and docstring conventions this project follows, and `tests/CLAUDE.md`
+for the testing ones.
 
 ---
 
