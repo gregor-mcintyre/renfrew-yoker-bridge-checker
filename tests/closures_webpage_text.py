@@ -2,5 +2,6 @@
 
 NO_CLOSURES_LINE = "No Closures Currently Planned."
 
-DATE_HEADING = "Saturday 12th September 2026"
+# Coupled to `tests.closure_data.BRIDGE_CLOSURE`
+DATE_HEADING = "Tuesday 15th September 2026"
 TIME_RANGE = "From 9am to 12:30pm"
