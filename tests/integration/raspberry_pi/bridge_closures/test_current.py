@@ -1,16 +1,14 @@
 """Tests `get_current_bridge_closures`, including real fetch and parse behaviour."""
 
-from datetime import datetime
 from unittest.mock import patch
 
 import pytest
 import requests
 
-from bridge_closure import BridgeClosure
 from bridge_closures._fetching import WebpageUnavailableError
-from bridge_closures._parsing import _LONDON_TZ
 from bridge_closures.current import get_current_bridge_closures
 from tests import closures_webpage_text, patch_target
+from tests.closure_data import BRIDGE_CLOSURE
 
 _PAGE_WITHOUT_CLOSURE = f"""
 <div class="article">
@@ -83,9 +81,4 @@ class TestGetCurrentBridgeClosures:
 
         result = get_current_bridge_closures()
 
-        assert result == [
-            BridgeClosure(
-                start=datetime(2026, 9, 12, 9, tzinfo=_LONDON_TZ),
-                end=datetime(2026, 9, 12, 12, 30, tzinfo=_LONDON_TZ),
-            ),
-        ]
+        assert result == [BRIDGE_CLOSURE]

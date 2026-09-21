@@ -2,10 +2,8 @@ import re
 from datetime import date, datetime, time, timedelta
 from unittest.mock import ANY, Mock, call, patch
 
-from bridge_closure import BridgeClosure
 from bridge_closures._parsing import (
     _DATE_HEADING_OR_TIME_RANGE_PATTERN,
-    _LONDON_TZ,
     _build_bridge_closure_with_london_timezone,
     _build_closure_from_match,
     _build_date_from_match,
@@ -14,6 +12,7 @@ from bridge_closures._parsing import (
     parse_bridge_closures,
 )
 from tests import closures_webpage_text, patch_target
+from tests.closure_data import BRIDGE_CLOSURE
 
 _PARSING_MODULE = patch_target.BRIDGE_CLOSURES_PACKAGE + "._parsing"
 
@@ -21,7 +20,7 @@ _ROLLOVER_START_TIME = "11pm"
 _ROLLOVER_END_TIME = "1am"
 _IMPLICIT_ROLLOVER_TIME_RANGE = f"From {_ROLLOVER_START_TIME} to {_ROLLOVER_END_TIME}"
 
-_START_DATE = date(2026, 9, 12)
+_START_DATE = date(2026, 9, 15)
 
 
 def _first_match(displayed_text: str) -> re.Match[str]:
@@ -48,7 +47,7 @@ class TestBuildDateFromMatch:
         assert _build_date_from_match(match) == _START_DATE
 
     def test_time_without_ordinal_suffix_returns_the_date(self):
-        match = _first_match("Saturday 12 September 2026")
+        match = _first_match("Tuesday 15 September 2026")
 
         assert _build_date_from_match(match) == _START_DATE
 
@@ -85,15 +84,12 @@ class TestResolveEndDate:
 
 
 def test_build_bridge_closure_with_london_timezone_sets_london_timezone_on_both_times():
-    start = datetime(2026, 9, 8, 23)
-    end = datetime(2026, 9, 9, 1)
+    start = datetime(2026, 9, 15, 9)
+    end = datetime(2026, 9, 15, 12, 30)
 
     result = _build_bridge_closure_with_london_timezone(start=start, end=end)
 
-    assert result == BridgeClosure(
-        start=start.replace(tzinfo=_LONDON_TZ),
-        end=end.replace(tzinfo=_LONDON_TZ),
-    )
+    assert result == BRIDGE_CLOSURE
 
 
 @patch(f"{_PARSING_MODULE}._build_bridge_closure_with_london_timezone")
@@ -106,7 +102,7 @@ def test_build_closure_from_match_delegates_each_step_and_returns_the_built_clos
 ):
     start_time = time(23)
     end_time = time(1)
-    resolved_end_date = date(2026, 9, 9)
+    resolved_end_date = date(2026, 9, 16)
 
     mock_parse_time.side_effect = [start_time, end_time]
     mock_resolve_end_date.return_value = resolved_end_date
@@ -125,8 +121,8 @@ def test_build_closure_from_match_delegates_each_step_and_returns_the_built_clos
         end_time=end_time,
     )
     mock_build_bridge_closure.assert_called_once_with(
-        start=datetime(2026, 9, 12, 23),
-        end=datetime(2026, 9, 9, 1),
+        start=datetime(2026, 9, 15, 23),
+        end=datetime(2026, 9, 16, 1),
     )
 
     assert result == mock_build_bridge_closure.return_value
@@ -211,7 +207,7 @@ class TestParseBridgeClosures:
         webpage_text = (
             f"{closures_webpage_text.DATE_HEADING}"
             f"\n{closures_webpage_text.TIME_RANGE}\n"
-            f"{'Sunday 13th September 2026'}"
+            f"{'Wednesday 16th September 2026'}"
             f"\n{_IMPLICIT_ROLLOVER_TIME_RANGE}"
         )
 
