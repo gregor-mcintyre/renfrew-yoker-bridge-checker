@@ -10,6 +10,7 @@ requires-python = ">=3.14"
 dependencies = [
     "requests",
     "beautifulsoup4",
+    "boto3",
 ]
 
 [project.optional-dependencies]
@@ -20,6 +21,7 @@ dev = [
     "mypy",
     "vulture",
     "pre-commit",
+    "boto3-stubs[ssm]",
 ]
 
 [tool.setuptools]
@@ -43,6 +45,9 @@ convention = "google"
 [tool.ruff.format]
 quote-style = "double"
 
+[tool.ruff.lint.isort]
+known-first-party = ["tests"]
+
 [tool.ruff.lint.per-file-ignores]
 "tests/**/test_*.py" = ["D100", "D101", "D102", "D103"]
 "**/__init__.py" = ["D104"]
@@ -51,6 +56,7 @@ quote-style = "double"
 strict = true
 python_version = "3.14"
 mypy_path = ["shared", "raspberry_pi", "alexa_lambda"]
+explicit_package_bases = true
 
 # Test functions carry no annotations, so the two rules that would demand them are off.
 # The rest of `strict` still applies: `check_untyped_defs` keeps type-checking test
