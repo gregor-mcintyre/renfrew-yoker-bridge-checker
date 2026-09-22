@@ -190,7 +190,7 @@ They need permission to call `ssm:PutParameter` on the parameter named in
 
 This project uses the **Git Flow** branching model. See
 [CONTRIBUTING.md](CONTRIBUTING.md) for the branch structure, the workflow for features,
-releases and hotfixes, and how to get `git-flow` installed.
+bugfixes, releases and hotfixes, and how to get `git-flow` installed.
 
 Code conventions - naming, docstrings, testing and commit messages - are documented in
 [CLAUDE.md](CLAUDE.md).
