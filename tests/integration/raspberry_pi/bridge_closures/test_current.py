@@ -5,48 +5,15 @@ from unittest.mock import patch
 import pytest
 import requests
 
+from bridge_closures._current import get_current_bridge_closures
 from bridge_closures._fetching import WebpageUnavailableError
-from bridge_closures.current import get_current_bridge_closures
-from tests import closures_webpage_text, patch_target
+from tests import patch_target
 from tests.closure_data import BRIDGE_CLOSURE
-
-_PAGE_WITHOUT_CLOSURE = f"""
-<div class="article">
-  <h3>{closures_webpage_text.DATE_HEADING}</h3>
-  <p>{closures_webpage_text.NO_CLOSURES_LINE}</p>
-</div>
-"""
-
-_CLOSURE_NOTICE = (
-    "The Renfrew Bridge will be closed to both road and pedestrian traffic during the "
-    "following times:"
+from tests.integration.raspberry_pi.bridge_closures._helpers import (
+    PAGE_WITH_CLOSURE,
+    PAGE_WITHOUT_CLOSURE,
+    build_response,
 )
-
-_PAGE_WITH_CLOSURE = f"""
-<div class="article">
-  <h3>{closures_webpage_text.DATE_HEADING}</h3>
-  <p>{_CLOSURE_NOTICE}</p>
-  <p>{closures_webpage_text.TIME_RANGE}</p>
-</div>
-"""
-
-
-def _build_response(body: str = "", *, status_code: int = 200) -> requests.Response:
-    """Builds a `requests.Response` for the patched `requests.get` to return.
-
-    Args:
-        body: The HTML response body.
-        status_code: The HTTP status code of the response.
-
-    Returns:
-        A `requests.Response` with `body` as its content and `status_code` as its
-        status.
-    """
-    response = requests.Response()
-    response.status_code = status_code
-    response._content = body.encode()
-
-    return response
 
 
 @patch(patch_target.BRIDGE_CLOSURES_PACKAGE + "._fetching.requests.get")
@@ -61,13 +28,13 @@ class TestGetCurrentBridgeClosures:
             get_current_bridge_closures()
 
     def test_error_status_raises_webpage_unavailable_error(self, mock_requests_get):
-        mock_requests_get.return_value = _build_response(status_code=503)
+        mock_requests_get.return_value = build_response(status_code=503)
 
         with pytest.raises(WebpageUnavailableError):
             get_current_bridge_closures()
 
     def test_no_closures_on_webpage_returns_empty_list(self, mock_requests_get):
-        mock_requests_get.return_value = _build_response(_PAGE_WITHOUT_CLOSURE)
+        mock_requests_get.return_value = build_response(PAGE_WITHOUT_CLOSURE)
 
         result = get_current_bridge_closures()
 
@@ -77,7 +44,7 @@ class TestGetCurrentBridgeClosures:
         self,
         mock_requests_get,
     ):
-        mock_requests_get.return_value = _build_response(_PAGE_WITH_CLOSURE)
+        mock_requests_get.return_value = build_response(PAGE_WITH_CLOSURE)
 
         result = get_current_bridge_closures()
 

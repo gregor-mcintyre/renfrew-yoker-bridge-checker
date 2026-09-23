@@ -1,0 +1,18 @@
+# Paths assume the repository is cloned at /home/pi/renfrew-yoker-bridge-checker and
+# its virtual environment created at .venv - edit all four if yours differ.
+#
+# Output is left to journald, which is what makes the logging of the scrape readable
+# through `journalctl -u bridge-checker.service`.
+
+[Unit]
+Description=Renfrew-Yoker bridge closure scrape
+Documentation=https://github.com/gregor-mcintyre/renfrew-yoker-bridge-checker
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=pi
+WorkingDirectory=/home/pi/renfrew-yoker-bridge-checker
+Environment=PYTHONPATH=/home/pi/renfrew-yoker-bridge-checker/shared
+ExecStart=/home/pi/renfrew-yoker-bridge-checker/.venv/bin/python /home/pi/renfrew-yoker-bridge-checker/raspberry_pi/scheduled_scrape.py

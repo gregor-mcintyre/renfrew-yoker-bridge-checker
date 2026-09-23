@@ -145,7 +145,44 @@ for the testing ones.
 
 ## Deployment
 
-# TODO: Fill this section in once deployment is underway.
+### The Raspberry Pi scrape
+
+The scrape runs as a `oneshot` systemd service driven by a timer. Both units live in
+[raspberry_pi/systemd](raspberry_pi/systemd) and assume the repository is cloned at
+`/home/pi/renfrew-yoker-bridge-checker`, with its virtual environment at `.venv` - edit
+the paths in `bridge-checker.service` if yours differ.
+
+```bash
+# Install the units:
+sudo cp raspberry_pi/systemd/bridge-checker.{service,timer} /etc/systemd/system/
+sudo systemctl daemon-reload
+
+# Enable and start the timer - the service is activated by it, never enabled itself:
+sudo systemctl enable --now bridge-checker.timer
+
+# Check the schedule and the outcome of the last run:
+systemctl list-timers bridge-checker.timer
+systemctl status bridge-checker.service
+
+# Follow the logs:
+journalctl -u bridge-checker.service -f
+```
+
+The timer fires at minutes 0, 15, 30 and 45 of every hour - wall-clock, anchored to the
+hour rather than to boot - plus a random delay of up to 60 seconds so the scrape never
+hits the council site on the exact quarter. A firing missed while the Pi was off is
+caught up shortly after boot.
+
+The service exits `1` when the council website is unreachable or the cache write fails,
+so a bad run shows up in `systemctl status` rather than passing silently. It leaves the
+last good cache in place, and Alexa keeps answering from it.
+
+### AWS credentials
+
+`boto3` resolves credentials through its standard chain, so any of the usual mechanisms
+work - `~/.aws/credentials` for the user the service runs as is the simplest on a Pi.
+They need permission to call `ssm:PutParameter` on the parameter named in
+`shared/closure_cache.py`.
 
 ---
 
@@ -153,7 +190,7 @@ for the testing ones.
 
 This project uses the **Git Flow** branching model. See
 [CONTRIBUTING.md](CONTRIBUTING.md) for the branch structure, the workflow for features,
-releases and hotfixes, and how to get `git-flow` installed.
+bugfixes, releases and hotfixes, and how to get `git-flow` installed.
 
 Code conventions - naming, docstrings, testing and commit messages - are documented in
 [CLAUDE.md](CLAUDE.md).

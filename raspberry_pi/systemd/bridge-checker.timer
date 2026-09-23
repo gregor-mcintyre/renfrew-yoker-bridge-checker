@@ -1,0 +1,11 @@
+[Unit]
+Description=Quarter-hourly Renfrew-Yoker bridge closure scrape
+
+[Timer]
+OnCalendar=*:0/15
+AccuracySec=1s
+RandomizedDelaySec=60
+Persistent=true
+
+[Install]
+WantedBy=timers.target
