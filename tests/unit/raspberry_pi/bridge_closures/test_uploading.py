@@ -12,10 +12,8 @@ from bridge_closures._uploading import (
     upload_bridge_closures,
 )
 from closure_cache import PARAMETER_NAME
-from tests import patch_target
+from tests import patch_targets
 from tests.closure_data import FETCHED_AT
-
-_UPLOADING_MODULE = patch_target.BRIDGE_CLOSURES_PACKAGE + "._uploading"
 
 
 class TestLog:
@@ -44,9 +42,9 @@ class TestLog:
         assert expected_message in caplog.text
 
 
-@patch(f"{_UPLOADING_MODULE}._log")
-@patch(f"{_UPLOADING_MODULE}.serialize_bridge_closures_to_json")
-@patch(f"{_UPLOADING_MODULE}.boto3.client")
+@patch(f"{patch_targets.UPLOADING}._log")
+@patch(f"{patch_targets.UPLOADING}.serialize_bridge_closures_to_json")
+@patch(f"{patch_targets.UPLOADING}.boto3.client")
 class TestUploadBridgeClosures:
     def test_serializes_the_closures_with_the_fetched_at_timestamp(
         self,

@@ -141,9 +141,10 @@ presence and shape; everything below is voice, which they don't check.
   docstring already covers — e.g., name `_validate_dates` rather than paraphrase what
   its docstring already explains.
 - **Single backticks for code references:** wrap variable names, class names, method
-  names, `None`, and literal numbers in backticks when mentioning them in prose. For
-  example: `my_var`, `MyClass`, `None`, `42`. Avoid backticks for string literals unless
-  you're specifying a particular string value.
+  names, `None`, literal numbers, and library, package and tool names in backticks when
+  mentioning them in prose. For example: `my_var`, `MyClass`, `None`, `42`, `my_lib`.
+  Avoid backticks for string literals unless you're specifying a particular string
+  value.
 - Generators use `Yields:`.
 - **Blank lines:** module/class docstring → one blank line → content. Function/method
   docstring → **no** blank line, code starts immediately.

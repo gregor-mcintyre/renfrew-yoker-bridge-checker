@@ -8,7 +8,7 @@ version = "0.0.0"
 description = "Check when the Renfrew-Yoker bridge is closed by asking Amazon Alexa."
 requires-python = ">=3.14"
 dependencies = [
-    "requests",
+    "curl_cffi",
     "beautifulsoup4",
     "boto3",
     "tzdata",
@@ -58,6 +58,9 @@ strict = true
 python_version = "3.14"
 mypy_path = ["shared", "raspberry_pi", "alexa_lambda"]
 explicit_package_bases = true
+# `curl_cffi` ships `py.typed` but leaves `Response.raise_for_status` unannotated, so
+# strict would reject every call to it as an untyped call.
+untyped_calls_exclude = ["curl_cffi.requests.models.Response.raise_for_status"]
 
 # Test functions carry no annotations, so the two rules that would demand them are off.
 # The rest of `strict` still applies: `check_untyped_defs` keeps type-checking test

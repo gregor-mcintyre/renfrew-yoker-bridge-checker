@@ -3,11 +3,11 @@
 from unittest.mock import patch
 
 import pytest
-import requests
+from curl_cffi.requests import exceptions
 
 from bridge_closures._current import get_current_bridge_closures
 from bridge_closures._fetching import WebpageUnavailableError
-from tests import patch_target
+from tests import patch_targets
 from tests.closure_data import BRIDGE_CLOSURE
 from tests.integration.raspberry_pi.bridge_closures._helpers import (
     PAGE_WITH_CLOSURE,
@@ -16,13 +16,15 @@ from tests.integration.raspberry_pi.bridge_closures._helpers import (
 )
 
 
-@patch(patch_target.BRIDGE_CLOSURES_PACKAGE + "._fetching.requests.get")
+@patch(f"{patch_targets.FETCHING}.requests.get")
 class TestGetCurrentBridgeClosures:
     def test_unreachable_webpage_raises_webpage_unavailable_error(
         self,
         mock_requests_get,
     ):
-        mock_requests_get.side_effect = requests.ConnectionError("Webpage unavailable")
+        mock_requests_get.side_effect = exceptions.ConnectionError(
+            "Webpage unavailable",
+        )
 
         with pytest.raises(WebpageUnavailableError):
             get_current_bridge_closures()

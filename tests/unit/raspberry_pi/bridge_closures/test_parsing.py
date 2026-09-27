@@ -11,10 +11,10 @@ from bridge_closures._parsing import (
     _resolve_end_date,
     parse_bridge_closures,
 )
-from tests import closures_webpage_text, patch_target
+from tests import closures_webpage_text, patch_targets
 from tests.closure_data import BRIDGE_CLOSURE
 
-_PARSING_MODULE = patch_target.BRIDGE_CLOSURES_PACKAGE + "._parsing"
+_PARSING_MODULE = patch_targets.BRIDGE_CLOSURES_PACKAGE + "._parsing"
 
 _ROLLOVER_START_TIME = "11pm"
 _ROLLOVER_END_TIME = "1am"

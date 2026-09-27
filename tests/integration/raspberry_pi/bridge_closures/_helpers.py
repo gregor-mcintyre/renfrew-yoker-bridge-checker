@@ -1,6 +1,6 @@
 """Webpage bodies and responses shared by the bridge closure integration tests."""
 
-import requests
+from curl_cffi import requests
 
 from tests import closures_webpage_text
 
@@ -26,18 +26,21 @@ PAGE_WITH_CLOSURE = f"""
 
 
 def build_response(body: str = "", *, status_code: int = 200) -> requests.Response:
-    """Builds a `requests.Response` for the patched `requests.get` to return.
+    """Builds a `Response` for the patched `requests.get` to return.
+
+    `ok` is set from `status_code` as a real request sets it, since `Response`
+    otherwise leaves it `True`.
 
     Args:
         body: The HTML response body.
         status_code: The HTTP status code of the response.
 
     Returns:
-        A `requests.Response` with `body` as its content and `status_code` as its
-        status.
+        The response, with `body` as the content and `status_code` as the status.
     """
     response = requests.Response()
     response.status_code = status_code
-    response._content = body.encode()
+    response.ok = 200 <= status_code < 400
+    response.content = body.encode()
 
     return response

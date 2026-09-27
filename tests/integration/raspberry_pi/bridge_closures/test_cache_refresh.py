@@ -4,11 +4,11 @@ import json
 from unittest.mock import patch
 
 import pytest
-import requests
+from curl_cffi.requests import exceptions
 
 from bridge_closures._fetching import WebpageUnavailableError
 from bridge_closures.cache_refresh import refresh_closure_cache
-from tests import patch_target
+from tests import patch_targets
 from tests.closure_data import BRIDGE_CLOSURE, FETCHED_AT
 from tests.integration.raspberry_pi.bridge_closures._helpers import (
     PAGE_WITH_CLOSURE,
@@ -17,9 +17,9 @@ from tests.integration.raspberry_pi.bridge_closures._helpers import (
 )
 
 
-@patch(patch_target.BRIDGE_CLOSURES_PACKAGE + ".cache_refresh.datetime")
-@patch(patch_target.BRIDGE_CLOSURES_PACKAGE + "._uploading.boto3.client")
-@patch(patch_target.BRIDGE_CLOSURES_PACKAGE + "._fetching.requests.get")
+@patch(f"{patch_targets.CACHE_REFRESH}.datetime")
+@patch(f"{patch_targets.UPLOADING}.boto3.client")
+@patch(f"{patch_targets.FETCHING}.requests.get")
 class TestRefreshClosureCache:
     def test_unreachable_webpage_leaves_the_cache_unwritten(
         self,
@@ -27,7 +27,9 @@ class TestRefreshClosureCache:
         mock_boto3_client,
         mock_datetime,
     ):
-        mock_requests_get.side_effect = requests.ConnectionError("Webpage unavailable")
+        mock_requests_get.side_effect = exceptions.ConnectionError(
+            "Webpage unavailable",
+        )
 
         with pytest.raises(WebpageUnavailableError):
             refresh_closure_cache()
