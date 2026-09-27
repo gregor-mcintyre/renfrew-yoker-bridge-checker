@@ -12,6 +12,7 @@ page: https://www1.renfrewshire.gov.uk/article/14478/Check-when-Renfrew-Bridge-i
 - [How it works](#how-it-works)
 - [Requirements](#requirements)
 - [Installation](#installation)
+- [Running the scrape](#running-the-scrape)
 - [Running the tests](#running-the-tests)
 - [Tooling](#tooling)
 - [Deployment](#deployment)
@@ -69,9 +70,11 @@ place, and Alexa keeps answering.
 ```bash
 # Clone the repository:
 git clone https://github.com/gregor-mcintyre/renfrew-yoker-bridge-checker.git
+cd renfrew-yoker-bridge-checker
 
-# Create a virtual environment:
-py -3.14 -m venv .venv
+# Create a virtual environment depending on your operating system:
+py -3.14 -m venv .venv # Windows
+python3.14 -m venv .venv # macOS/Linux
 
 # Activate the virtual environment depending on your operating system:
 .venv\Scripts\activate # Windows
@@ -83,6 +86,125 @@ pip install -e ".[dev]"
 # Wire up git hooks so linting/formatting/type-checks run on every commit:
 pre-commit install
 ```
+
+---
+
+## Running the scrape
+
+The scrape the Raspberry Pi runs on a timer can also be run manually on Windows, macOS
+or Linux - it is the same command the Pi's systemd service runs. Each run ends by
+writing the closures to AWS.
+
+### 1. Create an AWS account
+
+Sign up at [aws.amazon.com](https://aws.amazon.com/) with **Create an AWS Account**.
+It asks for an email address, a password, a payment card and a phone number, and
+choose **Basic support – Free** when asked. The email and password you sign up with
+are the **root user** - the all-powerful owner of the account - so keep them for account
+administration like the steps below, never for the scrape itself.
+
+Two safety nets are worth setting up straight away:
+
+- **Multi-factor authentication (MFA) for the root user** - under your account name at
+  the top right, **Security credentials** → **Assign MFA device**.
+- **A spending alert** - search the console for **Budgets** and create one from the
+  **Zero spend budget** template, which emails you if anything ever starts costing
+  money.
+
+### 2. Choose the region
+
+AWS is split into regions - separate groups of data centres - and the cache lives in
+exactly one. Use **Europe (Ireland) `eu-west-1`**, the European region Alexa skills run
+their Lambda in; the Lambda will read the cache from its own region. Pick it from the
+region menu at the top right of the console so you can find the cache later.
+
+### 3. Create a user for the scrape
+
+The scrape should not use your root login. Instead, give it an **IAM user** - a login
+for a program, not a person, that is allowed to do one thing only.
+
+1. Note your 12-digit **account ID** from the menu under your account name. The console
+   shows it with dashes; the policy below needs the digits alone.
+2. Open **IAM** → **Users** → **Create user**. Name it
+   `renfrew-yoker-bridge-checker-raspberry-pi`, leave console access off, and create it
+   without choosing any permissions.
+3. On the new user, open **Permissions** → **Add permissions** → **Create inline
+   policy**, switch the editor to **JSON**, and paste the policy below with your account
+   ID filled in. It allows writing the parameter named by `PARAMETER_NAME` in
+   `shared/closure_cache.py`, in Ireland, and nothing else:
+
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Allow",
+         "Action": "ssm:PutParameter",
+         "Resource": "arn:aws:ssm:eu-west-1:<account-id>:parameter/renfrew-yoker-bridge-checker/closures"
+       }
+     ]
+   }
+   ```
+
+### 4. Create an access key
+
+An **access key** is the username and password the scrape logs in with. On the user,
+open **Security credentials** → **Create access key**, and choose *Application running
+outside AWS* as the use case. AWS shows the **secret access key** only once, so keep the
+page open until the next step is done - if it is lost, create a new key and delete the
+old one. Create one key per machine (a user can hold two) so either can be revoked on
+its own, and never commit a key or paste it anywhere else.
+
+### 5. Store the key on your machine
+
+`boto3` reads the key and region from two files in a `.aws` folder in your home
+directory - `~/.aws` on macOS/Linux, `%USERPROFILE%\.aws` on Windows. Create the folder,
+then the two files with a plain-text editor, with no file extension:
+
+`credentials`, holding the key:
+
+```ini
+[default]
+aws_access_key_id = <access-key-id>
+aws_secret_access_key = <secret-access-key>
+```
+
+`config`, holding the region:
+
+```ini
+[default]
+region = eu-west-1
+```
+
+On macOS and Linux, `chmod 600 ~/.aws/credentials` keeps the key readable by you alone.
+If the machine already has a `default` profile for other work, name the sections
+`[bridge-checker]` in `credentials` and `[profile bridge-checker]` in `config` instead,
+and set `AWS_PROFILE` to `bridge-checker` alongside `PYTHONPATH` below.
+
+To check the key works, ask AWS who it is - this needs no permissions, and prints the
+user created in step 3:
+
+```bash
+python -c "import boto3; print(boto3.client('sts').get_caller_identity()['Arn'])"
+```
+
+### 6. Run the scrape
+
+From the repository root, with `.venv` activated:
+
+```bash
+# Put the two directories the scrape imports from on the module search path,
+# depending on your operating system:
+$env:PYTHONPATH = "shared;raspberry_pi" # Windows (PowerShell)
+export PYTHONPATH=shared:raspberry_pi # macOS/Linux
+
+# Run the scrape:
+python -m bridge_closures
+```
+
+There is no need to create the parameter in Parameter Store by hand: the first successful
+run creates it, and later runs overwrite it. To see it, open **Systems Manager** →
+**Parameter Store** in the console with Ireland selected.
 
 ---
 
@@ -150,7 +272,9 @@ for the testing ones.
 The scrape runs as a `oneshot` systemd service driven by a timer. Both units live in
 [raspberry_pi/systemd](raspberry_pi/systemd) and assume the repository is cloned at
 `/home/pi/renfrew-yoker-bridge-checker`, with its virtual environment at `.venv` - edit
-the paths in `bridge-checker.service` if yours differ.
+the paths in `bridge-checker.service` if yours differ. The service runs as the `pi`
+user, so its AWS credentials go in `/home/pi/.aws/` - set them up as in
+[Running the scrape](#running-the-scrape), with a second access key for the Pi.
 
 ```bash
 # Install the units:
@@ -176,13 +300,6 @@ caught up shortly after boot.
 The service exits `1` when the council website is unreachable or the cache write fails,
 so a bad run shows up in `systemctl status` rather than passing silently. It leaves the
 last good cache in place, and Alexa keeps answering from it.
-
-### AWS credentials
-
-`boto3` resolves credentials through its standard chain, so any of the usual mechanisms
-work - `~/.aws/credentials` for the user the service runs as is the simplest on a Pi.
-They need permission to call `ssm:PutParameter` on the parameter named in
-`shared/closure_cache.py`.
 
 ---
 
