@@ -30,9 +30,12 @@ A few constraints shaped the design:
 - **Alexa allows 8 seconds to respond.** Scraping a live page inside the voice request
   service is too slow and too fragile. Caching the result decouples response latency
   from scrape latency entirely.
-- **Renfrewshire council's website sits behind Cloudflare.** Requests from AWS's
-  datacenter IP ranges get blocked. A Raspberry Pi on a residential connection is
-  treated as ordinary traffic, which removes the need for a scraping proxy.
+- **The Renfrewshire council website sits behind Cloudflare.** Cloudflare answers a
+  client with a JavaScript challenge instead of the page unless the connection looks
+  like one from a browser, whatever User-Agent header it sends. The scrape uses
+  `curl_cffi` to connect with the fingerprint of a real browser, and runs on a Raspberry
+  Pi on home broadband rather than in AWS, because requests from datacenter IP ranges
+  are still likely to be blocked.
 - **A scraping proxy was the first attempt, and it wasn't viable.** ScraperAPI bills 40
   credits per Cloudflare-protected fetch rather than 1, so the free tier ran dry at any
   useful refresh cadence. The Raspberry Pi replaced it and costs virtually nothing to
@@ -123,15 +126,15 @@ region menu at the top right of the console so you can find the cache later.
 The scrape should not use your root login. Instead, give it an **IAM user** - a login
 for a program, not a person, that is allowed to do one thing only.
 
-1. Note your 12-digit **account ID** from the menu under your account name. The console
-   shows it with dashes; the policy below needs the digits alone.
-2. Open **IAM** → **Users** → **Create user**. Name it
+1. Open **IAM** → **Users** → **Create user**. Name it
    `renfrew-yoker-bridge-checker-raspberry-pi`, leave console access off, and create it
    without choosing any permissions.
-3. On the new user, open **Permissions** → **Add permissions** → **Create inline
-   policy**, switch the editor to **JSON**, and paste the policy below with your account
-   ID filled in. It allows writing the parameter named by `PARAMETER_NAME` in
-   `shared/closure_cache.py`, in Ireland, and nothing else:
+2. On the new user, open **Permissions** → **Add permissions** → **Create inline
+   policy**, switch the editor to **JSON**, and paste the policy below. It allows
+   writing parameters under `/renfrew-yoker-bridge-checker/` - the prefix of
+   `PARAMETER_NAME` in `shared/closure_cache.py` - in Ireland, and nothing else. The `*`
+   in place of an account ID grants nothing extra: the user can only ever write
+   parameters in the account it belongs to.
 
    ```json
    {
@@ -140,7 +143,7 @@ for a program, not a person, that is allowed to do one thing only.
        {
          "Effect": "Allow",
          "Action": "ssm:PutParameter",
-         "Resource": "arn:aws:ssm:eu-west-1:<account-id>:parameter/renfrew-yoker-bridge-checker/closures"
+         "Resource": "arn:aws:ssm:eu-west-1:*:parameter/renfrew-yoker-bridge-checker/*"
        }
      ]
    }
@@ -202,9 +205,9 @@ export PYTHONPATH=shared:raspberry_pi # macOS/Linux
 python -m bridge_closures
 ```
 
-There is no need to create the parameter in Parameter Store by hand: the first successful
-run creates it, and later runs overwrite it. To see it, open **Systems Manager** →
-**Parameter Store** in the console with Ireland selected.
+There is no need to create the parameter in Parameter Store by hand: the first
+successful run creates it, and later runs overwrite it. To see it, open **Systems
+Manager** → **Parameter Store** in the console with Ireland selected.
 
 ---
 
