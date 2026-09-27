@@ -7,9 +7,7 @@ from bridge_closure import LONDON_TZ
 from bridge_closures._fetching import WebpageUnavailableError
 from bridge_closures._uploading import ClosureCacheWriteError
 from bridge_closures.cache_refresh import main, refresh_closure_cache
-from tests import patch_target
-
-_CACHE_REFRESH_MODULE = patch_target.BRIDGE_CLOSURES_PACKAGE + ".cache_refresh"
+from tests import patch_targets
 
 _REFRESH_ERRORS = [
     pytest.param(WebpageUnavailableError("Unreachable"), id="webpage_unavailable"),
@@ -17,9 +15,9 @@ _REFRESH_ERRORS = [
 ]
 
 
-@patch(f"{_CACHE_REFRESH_MODULE}.upload_bridge_closures")
-@patch(f"{_CACHE_REFRESH_MODULE}.get_current_bridge_closures")
-@patch(f"{_CACHE_REFRESH_MODULE}.datetime")
+@patch(f"{patch_targets.CACHE_REFRESH}.upload_bridge_closures")
+@patch(f"{patch_targets.CACHE_REFRESH}.get_current_bridge_closures")
+@patch(f"{patch_targets.CACHE_REFRESH}.datetime")
 class TestRefreshClosureCache:
     def test_stamps_the_fetch_time_in_the_london_timezone(
         self,
@@ -55,8 +53,8 @@ class TestRefreshClosureCache:
         )
 
 
-@patch(f"{_CACHE_REFRESH_MODULE}.refresh_closure_cache")
-@patch(f"{_CACHE_REFRESH_MODULE}.logging.basicConfig")
+@patch(f"{patch_targets.CACHE_REFRESH}.refresh_closure_cache")
+@patch(f"{patch_targets.CACHE_REFRESH}.logging.basicConfig")
 class TestMain:
     def test_configures_logging(self, mock_basic_config, mock_refresh_closure_cache):
         main()

@@ -30,8 +30,8 @@ covers it.
   `Args:`/`Returns:` rules apply only where one is required.
 - **Module naming** — the root file bans `helpers`/`utils`/`common` as module names;
   `helpers.py` is the sanctioned name for shared test helpers here.
-- **Helper placement** — helpers live in locality-scoped modules beside their consumers,
-  not above their caller in the same module.
+- **Helper placement** — a helper used by one test module stays in it, above its first
+  caller; one shared by two or more moves to a locality-scoped module beside them.
 - **Annotations** — test functions carry none; fixtures and shared modules keep the
   production standard.
 
@@ -135,6 +135,10 @@ extra high-tier case is slower, more brittle, and duplicates cheaper coverage.
   `TestValidateResponse`. Inside the class, names drop `<unit>`:
   `test_<scenario>_<expected>`. A unit with one test keeps a standalone function with
   the full name.
+- The default scenario — the unit called with ordinary input while every collaborator
+  succeeds — is the one scenario left unnamed: `test_<expected>` inside a class,
+  `test_<unit>_<expected>` standalone. Every other case names its scenario first, so
+  an error case is `test_<error>_<expected>`, never `test_<expected>_if_<error>`.
 - Fixtures: `lower_snake_case`, named for what they provide. Mocks: `mock_` prefix.
 - The value returned by the code under test is always bound to `result`, never a
   contextual name like `status`.
@@ -179,9 +183,10 @@ extra high-tier case is slower, more brittle, and duplicates cheaper coverage.
 - Prefer `Mock` to `MagicMock`: `Mock` creates no magic methods, so a stand-in fails
   loudly the day the code does `len(x)` or `with x:`. `@patch` injects a `MagicMock`
   regardless.
-- A mock passed as a typed parameter needs a `cast` — strict mypy checks test bodies,
-  containers are invariant, and `spec=` doesn't help: `cast(list[Item], [Mock()])`. The
-  cast is bookkeeping, not a hint a real object was wanted.
+- A mock inside a container passed as a typed parameter needs a `cast` — strict mypy
+  checks test bodies, containers are invariant, and `spec=` doesn't help:
+  `cast(list[Item], [Mock()])`. The cast is bookkeeping, not a hint a real object was
+  wanted. A bare `Mock` needs none: typeshed gives it an `Any` base.
 - When every test in a class patches the same target, decorate the class. Its mocks
   arrive in bottom-up decorator order, after `self` and before fixtures. Decorate a
   method only when tests need different targets.
@@ -196,13 +201,16 @@ targets from it.
 
 - **A module in one file** — a private `_MODULE` constant: `_API_MODULE = "myapp._api"`,
   used as `@patch(f"{_API_MODULE}.requests.get")`.
-- **A module two files need** — move first, import after. Put it in `patch_targets.py`
-  in the narrowest directory covering both consumers (beside the tests, never in a
-  `test_*.py`). It is now imported from another directory, so it has no leading
-  underscore before that import is written — never import a still-private module and
-  rename it later. Import it dotted from `tests` (`from tests import patch_targets`,
-  assuming `tests` is a regular package) and module-import it, since a bare `API` is
-  ambiguous. The `_MODULE` suffix goes: `patch_targets.API`, not `.API_MODULE`.
+- **A module two files need** — move first, import after. Put it in the shared
+  patch-target module in the narrowest directory covering both consumers (beside the
+  tests, never in a `test_*.py`). It is now imported from another directory, so it has
+  no leading underscore before that import is written — never import a still-private
+  module and rename it later. Name that module by what it holds: `patch_target.py` while
+  it holds one target, `patch_targets.py` once it holds two or more — rename it and its
+  importers when the count crosses. Import it dotted from `tests` (`from tests import
+  patch_targets`, assuming `tests` is a regular package) and module-import it, since a
+  bare `API` is ambiguous. The `_MODULE` suffix goes: `patch_targets.API`, not
+  `.API_MODULE`.
 - **The package** — the shared module names it for the package plus what it is,
   `MY_APP_PACKAGE = "myapp"`, never a bare `PACKAGE`. A target only one file uses isn't
   centralised; that file builds its `_MODULE` constant from the package constant.

@@ -8,10 +8,10 @@ from botocore.exceptions import ClientError
 
 from bridge_closures._uploading import ClosureCacheWriteError, upload_bridge_closures
 from closure_cache import PARAMETER_NAME
-from tests import patch_target
+from tests import patch_targets
 from tests.closure_data import BRIDGE_CLOSURE, FETCHED_AT
 
-_BOTO3_CLIENT = patch_target.BRIDGE_CLOSURES_PACKAGE + "._uploading.boto3.client"
+_BOTO3_CLIENT = f"{patch_targets.UPLOADING}.boto3.client"
 
 
 @patch(_BOTO3_CLIENT)

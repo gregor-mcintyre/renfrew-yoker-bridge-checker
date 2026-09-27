@@ -13,11 +13,10 @@ from bridge_closures._fetching import (
     _raise_if_request_failed,
     fetch_webpage_text,
 )
-from tests import patch_target
+from tests import patch_targets
 
-_FETCHING_MODULE = patch_target.BRIDGE_CLOSURES_PACKAGE + "._fetching"
-_REQUESTS_GET = f"{_FETCHING_MODULE}.requests.get"
-_BEAUTIFUL_SOUP = f"{_FETCHING_MODULE}.BeautifulSoup"
+_REQUESTS_GET = f"{patch_targets.FETCHING}.requests.get"
+_BEAUTIFUL_SOUP = f"{patch_targets.FETCHING}.BeautifulSoup"
 
 _FAILED_STATUS_CODE = 500
 
@@ -131,7 +130,7 @@ class TestFetchWebpageText:
         with pytest.raises(WebpageUnavailableError, match=error_message):
             fetch_webpage_text()
 
-    @patch(f"{_FETCHING_MODULE}._raise_if_request_failed")
+    @patch(f"{patch_targets.FETCHING}._raise_if_request_failed")
     @patch(_REQUESTS_GET)
     def test_wraps_error_from_raise_if_request_failed(
         self,
