@@ -3,7 +3,7 @@
 from unittest.mock import patch
 
 import pytest
-import requests
+from curl_cffi.requests import exceptions
 
 from bridge_closures._current import get_current_bridge_closures
 from bridge_closures._fetching import WebpageUnavailableError
@@ -22,7 +22,9 @@ class TestGetCurrentBridgeClosures:
         self,
         mock_requests_get,
     ):
-        mock_requests_get.side_effect = requests.ConnectionError("Webpage unavailable")
+        mock_requests_get.side_effect = exceptions.ConnectionError(
+            "Webpage unavailable",
+        )
 
         with pytest.raises(WebpageUnavailableError):
             get_current_bridge_closures()
