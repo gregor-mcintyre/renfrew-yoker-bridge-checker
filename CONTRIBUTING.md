@@ -59,6 +59,23 @@ Version tag prefix: []
 
 ---
 
+## Pushing
+
+Nothing is pushed unless git flow needs the remote to change. When it does, everything
+committed locally on the branches it pushes goes with it.
+
+| Finish of                                  | Pushes                                     | Why git flow needs it                                                                                                             |
+|--------------------------------------------|--------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------|
+| `feature/*` or `bugfix/*`, never published | Nothing                                    | No remote change is needed. The merge into `develop` stays local.                                                                 |
+| `feature/*` or `bugfix/*`, published       | `develop`, via `--push`                    | `finish` deletes the remote branch itself. Without the push, commits that only lived there are stranded.                          |
+| `release/*` or `hotfix/*`                  | `main`, `develop` and the tag, via `-p`    | The release is the deliverable and must exist on the remote. All three go or none do, and a merge conflict stops it before any.   |
+| `start`, a commit, mid-work                | Nothing                                    | Never a force-push or a push of any other branch. `publish` and `pull` are the collaborator route in the workflow below.          |
+
+A branch push sends every commit reachable from it, so features finished locally earlier
+travel with the next `develop` push. Unfinished local branches and extra tags never go.
+
+---
+
 ## Workflow
 
 ### Feature Branches
@@ -81,7 +98,9 @@ git push
 
 # Finish the feature (merges into develop and deletes the feature branch)
 git flow feature finish <feature-name>
-git push
+
+# If it was published, finish pushes develop too, since it deletes the remote branch
+git flow feature finish --push <feature-name>
 ```
 
 ### Bugfix Branches
@@ -104,7 +123,9 @@ git push
 
 # Finish the bugfix (merges into develop and deletes the bugfix branch)
 git flow bugfix finish <bugfix-name>
-git push
+
+# If it was published, finish pushes develop too, since it deletes the remote branch
+git flow bugfix finish --push <bugfix-name>
 ```
 
 ### Release Branches
@@ -124,18 +145,9 @@ git commit -m "fix(<scope>): <what it corrects>"
 git push
 
 # Finish the release (merges into main and develop, and tags the release)
-# Resolve any merge conflicts before pushing anything
-git flow release finish <0.1.2> -m "chore(release): <0.1.2>"
-
-# A finished release lands in three places - push all three.
-# `git push --tags` pushes tags only, so main still needs its own push.
-git checkout develop
-git push
-
-git checkout main
-git push
-
-git push --tags
+# -p pushes main, develop and the tag, all or none. A merge conflict stops it
+# before anything is pushed; resolve the conflict and run it again.
+git flow release finish -p -m "chore(release): <0.1.2>" <0.1.2>
 ```
 
 ### Hotfix Branches
@@ -158,18 +170,9 @@ git commit -m "fix(<scope>): <what it corrects>"
 git push
 
 # Finish the hotfix (merges into main and develop, and tags the release)
-# Resolve any merge conflicts before pushing anything
-git flow hotfix finish <0.1.2> -m "chore(release): <0.1.2>"
-
-# A finished hotfix lands in three places - push all three.
-# `git push --tags` pushes tags only, so main still needs its own push.
-git checkout develop
-git push
-
-git checkout main
-git push
-
-git push --tags
+# -p pushes main, develop and the tag, all or none. A merge conflict stops it
+# before anything is pushed; resolve the conflict and run it again.
+git flow hotfix finish -p -m "chore(release): <0.1.2>" <0.1.2>
 ```
 
 ### Support Branches
