@@ -15,7 +15,7 @@ page: https://www1.renfrewshire.gov.uk/article/14478/Check-when-Renfrew-Bridge-i
 - [Running the scrape](#running-the-scrape)
 - [Running the tests](#running-the-tests)
 - [Tooling](#tooling)
-- [Deployment](#deployment)
+- [Setting up the Raspberry Pi](#setting-up-the-raspberry-pi)
 - [Contributing](#contributing)
 
 ---
@@ -65,6 +65,9 @@ place, and Alexa keeps answering.
 
 - [Git](https://git-scm.com/downloads)
 - [Python 3.14](https://www.python.org/downloads/)
+- A Raspberry Pi that runs the 64-bit Raspberry Pi OS, to run the scrape on a schedule -
+  see [Setting up the Raspberry Pi](#setting-up-the-raspberry-pi) for exactly what it
+  needs
 
 ---
 
@@ -271,16 +274,183 @@ for the testing ones.
 
 ---
 
-## Deployment
+## Setting up the Raspberry Pi
 
-### The Raspberry Pi scrape
+The Raspberry Pi runs the scrape every fifteen minutes. This section takes a Pi from its
+box to a running schedule. Every step ends with a check that proves it worked - don't
+move on until it passes. Work through [Running the scrape](#running-the-scrape) on your
+own computer first: it creates the AWS account, the region choice and the IAM user this
+section relies on.
 
-The scrape runs as a `oneshot` systemd service driven by a timer. Both units live in
-[raspberry_pi/systemd](raspberry_pi/systemd) and assume the repository is cloned at
-`/home/pi/renfrew-yoker-bridge-checker`, with its virtual environment at `.venv` - edit
-the paths in `bridge-checker.service` if yours differ. The service runs as the `pi`
-user, so its AWS credentials go in `/home/pi/.aws/` - set them up as in
-[Running the scrape](#running-the-scrape), with a second access key for the Pi.
+### What you need
+
+- **A Raspberry Pi that runs the 64-bit Raspberry Pi OS** - a Pi 3, 3B+, 4, 5, 400 or
+  Zero 2 W. Older models (Pi 1, 2 and the original Zero) run only the 32-bit OS, which
+  won't work: prebuilt Python 3.14 interpreters and the `curl_cffi` library the scrape
+  depends on are published for 64-bit ARM (`aarch64`), and building them from source
+  on a Pi is impractical.
+- **A microSD card of 8 GB or more.**
+- **The official power supply for your model.** An underpowered Pi misbehaves in ways
+  that look like software faults.
+- **Power and home broadband around the clock** - by Wi-Fi or an Ethernet cable. It has
+  to be a home connection, not a mobile hotspot or anything in a datacentre - see
+  [How it works](#how-it-works) for why the council website's Cloudflare protection
+  makes that matter.
+- **A computer with an SD card slot or reader** to prepare the card.
+
+### 1. Put Raspberry Pi OS on the card
+
+The Pi has no operating system until you write one to the microSD card.
+
+1. Install **Raspberry Pi Imager** from
+   [raspberrypi.com/software](https://www.raspberrypi.com/software/) on your computer,
+   and insert the card.
+2. In Imager, choose your **device** (e.g. *Raspberry Pi 3*), then the **operating
+   system**: *Raspberry Pi OS (other)* → **Raspberry Pi OS Lite (64-bit)**. *Lite* has
+   no desktop, which the Pi doesn't need - you control it from your computer. Then
+   choose the **storage**: your microSD card.
+3. When Imager offers **OS customisation**, accept it and fill in (the settings are
+   spread over a few tabs or pages, depending on the Imager version):
+    - **Hostname:** `bridge-checker` - the name your computer will find the Pi by.
+    - **Username:** **`pi`**, and a password of your choosing. The systemd units in
+      [raspberry_pi/systemd](raspberry_pi/systemd) run as `pi` from `/home/pi`; any
+      other username means editing the paths in `bridge-checker.service` to match.
+    - **Wireless LAN:** your Wi-Fi name and password, with the country set to `GB`. Skip
+      this if you'll use an Ethernet cable.
+    - **Locale:** time zone `Europe/London`, keyboard layout `gb`.
+    - **SSH:** enabled, with password authentication. SSH is how you'll type commands
+      on the Pi from your computer.
+4. Write the card. Imager erases it, writes the OS and checks it, which takes a few
+   minutes.
+
+Put the card in the Pi, connect the network cable if you're using one, and plug in the
+power. The first boot takes a couple of minutes while it applies your settings.
+
+**Check:** from a terminal on your computer (PowerShell on Windows, Terminal on
+macOS/Linux), connect to the Pi:
+
+```bash
+ssh pi@bridge-checker.local
+```
+
+Answer `yes` to the question about the host's authenticity (asked only the first time),
+then enter the password you chose. A prompt reading `pi@bridge-checker:~ $` means you're
+on the Pi. If the name isn't found, look up the Pi's IP address in your router's list
+of connected devices and use `ssh pi@<ip-address>` instead.
+
+**From here on, commands run on the Pi** in that SSH session, unless a step says to use
+your computer.
+
+### 2. Update the Pi and install Git
+
+```bash
+# Bring every installed package up to date:
+sudo apt update && sudo apt full-upgrade -y
+
+# Install Git, which Raspberry Pi OS Lite leaves out:
+sudo apt install -y git
+```
+
+**Check:** confirm the OS is 64-bit and Git is installed:
+
+```bash
+uname -m      # prints aarch64 - anything else means the 32-bit OS was written
+git --version
+```
+
+### 3. Install Python 3.14
+
+Raspberry Pi OS ships an older Python than the project needs. Rather than compile one -
+which takes about an hour on a Pi 3 - install [uv](https://docs.astral.sh/uv/), a
+Python installer that downloads a prebuilt interpreter:
+
+```bash
+# Install uv, then load it into this session (new sessions pick it up automatically):
+curl -LsSf https://astral.sh/uv/install.sh | sh
+source $HOME/.local/bin/env
+
+# Download Python 3.14:
+uv python install 3.14
+```
+
+**Check:** `uv python find 3.14` prints the path of the new interpreter.
+
+### 4. Download the project and install its dependencies
+
+```bash
+# Clone the repository into /home/pi, where the systemd units expect it:
+cd ~
+git clone https://github.com/gregor-mcintyre/renfrew-yoker-bridge-checker.git
+cd renfrew-yoker-bridge-checker
+
+# Create the virtual environment with Python 3.14:
+uv venv --python 3.14 .venv
+
+# Install the libraries the scrape uses. The development tools in `[dev]` aren't needed
+# on the Pi, so they're left out:
+uv pip install -e .
+```
+
+**Check:** the scrape's libraries import under the right Python:
+
+```bash
+.venv/bin/python -c "import sys, boto3, bs4, curl_cffi; print(sys.version)"
+```
+
+It prints a version starting `3.14`. An `ImportError` means the install step failed -
+scroll back through its output for the error.
+
+### 5. Give the Pi its own AWS access key
+
+The Pi signs in to AWS the same way your computer does in
+[Running the scrape](#running-the-scrape), but with **its own access key**, so either
+can be revoked without affecting the other.
+
+1. On your computer, in the AWS console, create a second access key for the
+   `renfrew-yoker-bridge-checker-raspberry-pi` user as in
+   [step 4 of Running the scrape](#4-create-an-access-key). Keep the page with the
+   secret open until the files below are saved.
+2. On the Pi, create the two files from
+   [step 5 of Running the scrape](#5-store-the-key-on-your-machine) in `/home/pi/.aws/`,
+   using the new key. `nano` is a simple editor that runs in the terminal - save with
+   Ctrl+O then Enter, and exit with Ctrl+X:
+
+   ```bash
+   mkdir -p ~/.aws
+   nano ~/.aws/credentials   # the [default] section with the new key
+   nano ~/.aws/config        # the [default] section with region = eu-west-1
+   chmod 600 ~/.aws/credentials
+   ```
+
+**Check:** ask AWS who the Pi is:
+
+```bash
+.venv/bin/python -c "import boto3; print(boto3.client('sts').get_caller_identity()['Arn'])"
+```
+
+It prints an ARN ending `:user/renfrew-yoker-bridge-checker-raspberry-pi`.
+
+### 6. Run the scrape once by hand
+
+From `~/renfrew-yoker-bridge-checker`:
+
+```bash
+PYTHONPATH=shared:raspberry_pi .venv/bin/python -m bridge_closures
+```
+
+It logs the closures it scraped, then the closures it uploaded, and ends without an
+error.
+
+**Check:** on your computer, open **Systems Manager** → **Parameter Store** in the AWS
+console with Ireland selected, and open `/renfrew-yoker-bridge-checker/closures`. Its
+**Last modified date** is the time you just ran the scrape, and the `fetched_at` at the
+start of its **Value** matches it.
+
+### 7. Run it on a schedule
+
+The scrape runs as a `oneshot` systemd service driven by a timer - systemd being the
+program that starts and supervises everything on the Pi. Both units live in
+[raspberry_pi/systemd](raspberry_pi/systemd). From `~/renfrew-yoker-bridge-checker`:
 
 ```bash
 # Install the units:
@@ -289,23 +459,119 @@ sudo systemctl daemon-reload
 
 # Enable and start the timer - the service is activated by it, never enabled itself:
 sudo systemctl enable --now bridge-checker.timer
-
-# Check the schedule and the outcome of the last run:
-systemctl list-timers bridge-checker.timer
-systemctl status bridge-checker.service
-
-# Follow the logs:
-journalctl -u bridge-checker.service -f
 ```
 
 The timer fires at minutes 0, 15, 30 and 45 of every hour - wall-clock, anchored to the
 hour rather than to boot - plus a random delay of up to 60 seconds so the scrape never
-hits the council site on the exact quarter. A firing missed while the Pi was off is
-caught up shortly after boot.
+hits the council site on the exact quarter. A firing missed while the Pi was off - after
+a power cut, say - is caught up shortly after it boots again, and the timer survives
+reboots.
 
 The service exits `1` when the council website is unreachable or the cache write fails,
 so a bad run shows up in `systemctl status` rather than passing silently. It leaves the
 last good cache in place, and Alexa keeps answering from it.
+
+**Check:** confirm the timer is scheduled, then that it runs by itself:
+
+```bash
+# NEXT shows the coming quarter-hour:
+systemctl list-timers bridge-checker.timer
+```
+
+Once that time has passed, look at the outcome of the run:
+
+```bash
+# "status=0/SUCCESS" in the output means the last run worked:
+systemctl status bridge-checker.service
+
+# The logs of every run, newest last - press q to exit:
+journalctl -u bridge-checker.service
+```
+
+[Viewing the logs](#viewing-the-logs) covers more ways to read them.
+
+Finally, refresh the parameter in the AWS console: its **Last modified date** has moved
+on to the timer's run, with nobody touching it. The Pi is done - it can run without a
+screen, keyboard or SSH session from now on.
+
+### Viewing the logs
+
+Every run writes its log to the system journal, which `journalctl` reads. On the Pi, in
+an SSH session:
+
+```bash
+# The last 50 lines - the usual starting point:
+journalctl -u bridge-checker.service -n 50
+
+# Follow new lines as they arrive, until you press Ctrl+C:
+journalctl -u bridge-checker.service -f
+
+# Only today's runs, or only the last few hours:
+journalctl -u bridge-checker.service --since today
+journalctl -u bridge-checker.service --since "3 hours ago"
+
+# Only errors - the failed runs:
+journalctl -u bridge-checker.service -p err
+```
+
+`journalctl` shows long output a page at a time: press the space bar for the next page
+and `q` to quit. Add `--no-pager` to print it all at once instead.
+
+You can also read them without opening a session, by running the command through SSH
+from your computer:
+
+```bash
+ssh pi@bridge-checker.local journalctl -u bridge-checker.service -n 50 --no-pager
+```
+
+A successful run logs two lines - the closures scraped from the council website, then
+the closures uploaded to the AWS cache. A failed run logs the reason, then `The
+scheduled Renfrew-Yoker bridge closure scrape failed.` and the error. Each line starts
+with the time systemd recorded it.
+
+To see whether the logs survive a reboot, list the boots the journal remembers:
+
+```bash
+journalctl --list-boots
+```
+
+If it lists only the current boot, the journal is kept in memory and a power cut wipes
+it. Make it permanent with:
+
+```bash
+sudo mkdir -p /var/log/journal
+sudo systemctl restart systemd-journald
+```
+
+### Keeping it running
+
+**Updating it** - after new commits land on GitHub, on the Pi:
+
+```bash
+cd ~/renfrew-yoker-bridge-checker
+git pull
+
+# Only needed if pyproject.toml's dependencies changed:
+uv pip install -e .
+
+# Only needed if a file in raspberry_pi/systemd changed:
+sudo cp raspberry_pi/systemd/bridge-checker.{service,timer} /etc/systemd/system/
+sudo systemctl daemon-reload
+```
+
+Nothing needs restarting: every run is a fresh process that loads the latest code.
+
+**Troubleshooting** - start with `journalctl -u bridge-checker.service -n 50`, which
+shows the last 50 log lines:
+
+| What you see                                                                                                      | What it means                                                                                                                                                                                                             |
+|-------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `Failed to reach the Renfrew-Yoker bridge closures webpage. Status code: 403` with `Just a moment...` in the body | Cloudflare blocked the request. Check the Pi is on home broadband, not a VPN or hotspot. An occasional one that clears by the next run can be ignored.                                                                    |
+| `Unable to locate credentials`                                                                                    | The key files aren't in `/home/pi/.aws/` - see step 5. The service runs as `pi`, so a key set up under another user isn't seen.                                                                                           |
+| `You must specify a region`                                                                                       | `/home/pi/.aws/config` is missing, or its `region` line is.                                                                                                                                                               |
+| `AccessDenied` for `ssm:PutParameter`                                                                             | The IAM policy doesn't cover the parameter - check the policy JSON, and that the region in `config` is `eu-west-1`.                                                                                                       |
+| `Signature expired` or certificate errors                                                                         | The Pi's clock is wrong. `timedatectl` should say `System clock synchronized: yes`; the Pi sets its clock over the network, so check the connection.                                                                      |
+| `status=203/EXEC` in `systemctl status`                                                                           | systemd can't find `.venv/bin/python` - the repository isn't at `/home/pi/renfrew-yoker-bridge-checker`, or the username isn't `pi`. Edit `bridge-checker.service` to match, then copy it and reload as in *Updating it*. |
 
 ---
 
