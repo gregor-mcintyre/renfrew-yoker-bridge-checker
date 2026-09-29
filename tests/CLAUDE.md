@@ -7,9 +7,7 @@ wins for code under `tests/`; everything it doesn't override still applies.
 
 ## Commands
 
-The canonical test commands: the test-writing and commit skills read the tier command
-from here, so a change made only in `README.md` won't reach them. Run from the
-repository root, with `.venv` activated.
+The canonical test commands — `README.md` copies them, so change them here first.
 
 | Task              | Command                                      |
 |-------------------|----------------------------------------------|
@@ -18,12 +16,9 @@ repository root, with `.venv` activated.
 | One file or test  | `pytest <path>` / `pytest -k <name>`         |
 | Coverage          | `pytest --cov`                               |
 
-`pytest` is not a pre-commit hook — verify a change with the narrowest command that
-covers it.
-
 ---
 
-## Overrides of the root `CLAUDE.md`:
+## Overrides of the root `CLAUDE.md`
 
 - **Docstrings** — required only where the table under *Docstrings and annotations*
   below says so; most test files carry none, and the root file's voice and
@@ -102,10 +97,18 @@ extra high-tier case is slower, more brittle, and duplicates cheaper coverage.
 - **No internal mocking in integration.** Only genuine third-party boundaries may be
   faked. A test that can't pass without patching an internal name means the seam is
   drawn in the wrong place, or the case belongs in the unit tier.
-- **Integration scope follows the entry point**, not the file it lives in. A test that
-  mocks nothing internal drives every real seam on its call chain, however many modules
-  that crosses — so a file for an outer entry point can make an inner one's file
-  redundant.
+- **Integration scope follows the entry point**, not the file it lives in, and entry
+  points nest into layers: in `fetch_user_data` → `fetch_remote_api` →
+  `_validate_response`, each arrow is a seam. Each seam is tested in the lowest layer
+  that has it, so the lower the layer, the more of the real behaviour the file of that
+  layer tests. A layer above tests only how it pieces that layer in — one case per kind
+  of outcome it handles, not one per branch below. A case whose failure would point at a
+  lower layer belongs in the file of that layer, so every failure points at the layer
+  that owns it.
+- **A layer earns its own file when its seam has behaviour of its own.** A pass-through,
+  or a private helper with one caller and no branching, is left to the file above — the
+  only case where an outer file makes an inner one redundant. That can leave the top
+  layer as the only file, but as a judgement, never the default.
 - **E2e is driven from outside** — the documented command, script or handler — never by
   importing internals. A test that reaches inside is an integration test misnamed.
 - **E2e keeps externals real where practical.** Where one genuinely isn't (a paid API,
@@ -117,9 +120,10 @@ extra high-tier case is slower, more brittle, and duplicates cheaper coverage.
 
 - **Unit** — `test_<module>.py`, mirroring the source 1:1. Drop a private module's
   underscore: `_parsing.py` → `test_parsing.py`, never `test__parsing.py`.
-- **Integration** — named for what it exercises: usually the public entry point under
-  test, or any apt name that reads better. Not a list of collaborators, not a sentence.
-  It may share the unit file's name; the tier directory disambiguates.
+- **Integration** — named for what it exercises: usually the entry point of the layer
+  under test, public or private, or any apt name that reads better. Not a list of
+  collaborators, not a sentence. It may share the name of the unit file; the tier
+  directory disambiguates.
 - **E2e** — named for the user-facing entry point it drives: the CLI command, script or
   handler. Usually one per deliverable.
 - **Shared helpers and factories** — locality-scoped modules beside their consumers,
