@@ -230,7 +230,7 @@ pytest tests/e2e
 pytest tests/unit/raspberry_pi/bridge_closures/test_parsing.py
 
 # A single test:
-pytest -k test_parses_a_single_closure
+pytest -k test_returns_empty_list_when_no_date_heading_is_found
 ```
 
 ### Test Coverage
@@ -240,22 +240,25 @@ with `pytest-cov`:
 
 ```bash
 # Coverage for the whole test suite, printed to the terminal:
-pytest --cov=shared --cov=raspberry_pi --cov=alexa_lambda
+pytest --cov
 
 # Coverage with an HTML report (open htmlcov/index.html in a browser):
-pytest --cov=shared --cov=raspberry_pi --cov=alexa_lambda --cov-report=html
+pytest --cov --cov-report=html
 
 # Coverage for a single tier:
-pytest tests/unit --cov=shared --cov=raspberry_pi --cov=alexa_lambda
+pytest tests/unit --cov
 ```
 
 ---
 
 ## Tooling
 
-On every `git commit`, Ruff (lint + format), mypy (type-checking) and vulture (dead
-code) run automatically via pre-commit. They report issues without auto-fixing. If a
-hook fails, fix the flagged lines by hand, then re-commit.
+On every `git commit`, Ruff (lint + format), mypy (type-checking), vulture (dead code),
+the test suite and a line-ending check that rejects CRLF run automatically via
+pre-commit. mypy, vulture and the tests check the whole repository on every commit, not
+just the staged files. Commit with `.venv` activated, since vulture and pytest run from
+it. They report issues without auto-fixing. If a hook fails, fix the flagged lines by
+hand, then re-commit.
 
 ```bash
 # Run every hook manually against all files:
@@ -312,5 +315,6 @@ This project uses the **Git Flow** branching model. See
 [CONTRIBUTING.md](CONTRIBUTING.md) for the branch structure, the workflow for features,
 bugfixes, releases and hotfixes, and how to get `git-flow` installed.
 
-Code conventions - naming, docstrings, testing and commit messages - are documented in
-[CLAUDE.md](CLAUDE.md).
+Code conventions - naming, docstrings and code style - are documented in
+[CLAUDE.md](CLAUDE.md), test conventions in [tests/CLAUDE.md](tests/CLAUDE.md), and
+commit messages in [CONTRIBUTING.md](CONTRIBUTING.md#commit-messages).

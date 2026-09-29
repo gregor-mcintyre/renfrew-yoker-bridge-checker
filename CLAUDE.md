@@ -4,7 +4,8 @@
 - **What it is:** An Alexa skill that reports when the Renfrew-Yoker pedestrian bridge
   is closed. A Raspberry Pi scrapes the council site on a schedule and caches the result
   in AWS SSM Parameter Store; an AWS Lambda reads that cache to answer voice requests
-  inside Alexa's 8-second window.
+  inside Alexa's 8-second window. The Lambda isn't in the repository yet, though
+  `pyproject.toml` already lists its `alexa_lambda` root.
 - **Python:** 3.14
 - **Test conventions:** `tests/CLAUDE.md`. The rules here govern test code too, except
   where that file overrides them — it is the only place test rules live.
@@ -16,7 +17,8 @@ unnecessary.
 
 ## Commands
 
-Run from the repository root, with `.venv` activated.
+Run these, and the test commands in `tests/CLAUDE.md`, from the repository root with
+`.venv` activated.
 
 | Task              | Command                                           |
 |-------------------|---------------------------------------------------|
@@ -25,20 +27,18 @@ Run from the repository root, with `.venv` activated.
 | Type-check        | `mypy .`                                          |
 | Dead code         | `vulture --min-confidence 80 .`                   |
 
-Test commands live in `tests/CLAUDE.md`. Verify a change with the narrowest command that
-covers it, then run `pre-commit run --all-files`.
-
 ---
 
 ## Enforced by tooling — don't re-litigate
 
 Ruff (lint, format, import sorting, docstring style, naming), mypy (static type
-checking) and vulture (`--min-confidence 80`), all wired through pre-commit. House
-defaults: 88 columns, double quotes, Google-style docstrings.
+checking), vulture (`--min-confidence 80`), the pytest suite and a CRLF line-ending
+check, all wired through pre-commit. House defaults: 88 columns, double quotes,
+Google-style docstrings.
 
 Ruff's `COM812` requires a trailing comma on any construct that spans lines, and the
 formatter's magic trailing comma then holds it open — so **a wrapped signature or call
-puts one argument per line**. Nothing to remember: let the tools tell you.
+puts one argument per line**.
 
 Hooks **report without auto-fixing** — fix flagged lines by hand; never pass `--fix`.
 
@@ -64,8 +64,7 @@ it. A package directory earns the underscore the same way — a subpackage nothi
 its parent imports. Manual convention, not Ruff-enforced; doesn't apply to non-Python
 files.
 
-**Module names.** PEP 8 mandates short, all-lowercase, underscores-if-it-helps names.
-House convention: name by subject or shape, never a bare imperative verb — a module is a
+**Module names.** Name by subject or shape, never a bare imperative verb — a module is a
 namespace read at the call site, so `validate.validate_email(x)` stutters while
 `validators.email(x)` doesn't. Pick whichever fits the content:
 
@@ -93,7 +92,7 @@ its own submodule.
   `config.TIMEOUT` earns the module-import; `parse_response` stays object-imported even
   though `parsers.parse_response` would add context too — the bar is genuine ambiguity,
   not mere possibility. Be consistent per-name — mixing styles across the codebase is
-  fine. Never wildcard-import.
+  fine.
 - **Arguments:** positional for short, unambiguous calls; keyword at 3+ args, for
   booleans, or for same-typed args; keyword-only (`*,`) for flags and config params.
 - **No generic `utils/`.** Name modules by function. Only introduce `utils/` once there
@@ -102,15 +101,12 @@ its own submodule.
 - **Helpers are defined above the function that calls them**, within the same module,
   ordered by when that function first uses them.
 - **No dead code.** Delete zero-reference functions, classes and variables.
-- **Break functions into smaller, testable pieces.** Keep functions and methods small
-  and focused so they're easy to unit test — avoid monolithic functions that do too
-  much, and refactor once one gets hard to test in isolation.
-- **Separate logical blocks with blank lines.** Group related statements together within
-  a function or block, with a blank line between distinct logical units — e.g., between
-  an early return guard and the main logic that follows.
-- **Don't restate default arguments.** Never pass a default argument value explicitly.
-  If a function signature is `func(min=0)`, call it as `func()`, not `func(min=0)`.
-  Applies to method defaults too — `body.encode()`, not `body.encode("utf-8")`;
+- **Break functions into smaller, testable pieces** — small and focused, and refactored
+  once one gets hard to unit test in isolation.
+- **Separate logical blocks with blank lines** — related statements grouped, a blank
+  line between distinct units, e.g. between an early-return guard and the main logic.
+- **Don't restate default arguments** — with `func(min=0)`, call `func()`, not
+  `func(min=0)`. Method defaults too — `body.encode()`, not `body.encode("utf-8")`;
   `d.get(key)`, not `d.get(key, None)`. Ruff's `UP012` catches only the string-literal
   form (`"...".encode("utf-8")`), so the variable form is on review.
 - **Reuse an existing constant instead of retyping its literal.** If a name already
@@ -119,12 +115,10 @@ its own submodule.
   `"https://example.invalid/status"` — the second retypes a literal the first constant
   already owns, and the two copies can drift the moment the host changes. Nothing
   catches this; it's on review.
-- **Inline single-use variables.** A variable used only once should be inlined unless
-  inlining reduces readability. The exception: a binding that names an otherwise opaque
-  expression improves clarity — then keep the variable even if used once. For example,
-  `year_str = str(year)` followed by one use of `year_str` adds no value; inline it. But
-  `parsed_date = parse_iso_date(raw_input)` followed by one use clarifies intent; keep
-  it.
+- **Inline single-use variables** unless inlining hurts readability — as when the
+  binding names an otherwise opaque expression. `year_str = str(year)`, used once, adds
+  nothing: inline it. `parsed_date = parse_iso_date(raw_input)`, used once, clarifies
+  intent: keep it.
 
 ---
 
@@ -140,11 +134,10 @@ presence and shape; everything below is voice, which they don't check.
   keeps its own `Args:` and `Returns:`, but names the helper for anything its own
   docstring already covers — e.g., name `_validate_dates` rather than paraphrase what
   its docstring already explains.
-- **Single backticks for code references:** wrap variable names, class names, method
-  names, `None`, literal numbers, and library, package and tool names in backticks when
-  mentioning them in prose. For example: `my_var`, `MyClass`, `None`, `42`, `my_lib`.
-  Avoid backticks for string literals unless you're specifying a particular string
-  value.
+- **Single backticks for code references** in prose — variable, class, method,
+  library, package and tool names, plus `None` and literal numbers: `my_var`, `MyClass`,
+  `None`, `42`, `my_lib`. Not for string literals, unless specifying a particular
+  string value.
 - Generators use `Yields:`.
 - **Blank lines:** module/class docstring → one blank line → content. Function/method
   docstring → **no** blank line, code starts immediately.
