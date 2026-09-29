@@ -3,8 +3,10 @@
 This project uses the **Git Flow** branching model, where each branch has a unique
 purpose ([see below](#branch-structure)).
 
-Code conventions - naming, docstrings, testing and commit-message style - live in
-[CLAUDE.md](CLAUDE.md). Setup and test commands live in [README.md](README.md).
+Code conventions live in [CLAUDE.md](CLAUDE.md), the master file. Test conventions and
+test commands live in [tests/CLAUDE.md](tests/CLAUDE.md), which overrides the master
+file for code under `tests/`. Setup lives in [README.md](README.md), and commit messages
+follow [the format below](#commit-messages).
 
 ---
 
@@ -48,8 +50,8 @@ Version tag prefix: []
 | Branch      | Purpose                                                                                                                                                                     |
 |-------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `main`      | Production-ready code only. Every commit here is deployable and typically tagged with a release version.                                                                    |
-| `develop`   | The integration branch for ongoing work. All finished features land here before a release is released.                                                                      |
-| `feature/*` | Short-lived branches for individual features, backlog items, or bug work. Branched from and merged back into `develop`.                                                     |
+| `develop`   | The integration branch for ongoing work. Finished features and bugfixes land here before they are released.                                                                 |
+| `feature/*` | Short-lived branches for new or changed behaviour, and any work that isn't a fix: refactors, docs, tooling. Branched from and merged back into `develop`.                   |
 | `bugfix/*`  | Short-lived branches for bug fixes that don't justify interrupting production with a hotfix. Branched from and merged back into `develop`, same as a feature.               |
 | `release/*` | Created when preparing a new version. Used for final stabilisation, version bumps, and release-only fixes. Merged into both `main` and `develop`.                           |
 | `hotfix/*`  | Urgent, isolated fixes for production issues. Branched from `main`, merged into both `main` and `develop`.                                                                  |
@@ -61,7 +63,7 @@ Version tag prefix: []
 
 ### Feature Branches
 
-Use for new features.
+Use for new or changed behaviour, and any work that isn't a fix.
 
 ```
 # Create a new feature
@@ -74,7 +76,7 @@ git flow feature publish <feature-name>
 git flow feature pull origin <feature-name>
 
 # Commit and push as you go
-git commit -m "Add feature description"
+git commit -m "feat(<scope>): <what it adds>"
 git push
 
 # Finish the feature (merges into develop and deletes the feature branch)
@@ -97,7 +99,7 @@ git flow bugfix publish <bugfix-name>
 git flow bugfix pull origin <bugfix-name>
 
 # Commit and push as you go
-git commit -m "Fix incorrect closure parsing"
+git commit -m "fix(<scope>): <what it corrects>"
 git push
 
 # Finish the bugfix (merges into develop and deletes the bugfix branch)
@@ -108,7 +110,7 @@ git push
 ### Release Branches
 
 Use when preparing a new version for deployment. A release branch can bundle one or more
-completed features.
+completed features and bugfixes; finish each into `develop` before starting the release.
 
 ```
 # Create a new release
@@ -118,12 +120,12 @@ git flow release start <0.1.2>
 git flow release publish <0.1.2>
 
 # Make any last-minute release fixes directly on the release branch
-git commit -m "Final fixes for release v0.1.2"
+git commit -m "fix(<scope>): <what it corrects>"
 git push
 
 # Finish the release (merges into main and develop, and tags the release)
 # Resolve any merge conflicts before pushing anything
-git flow release finish <0.1.2> -m "Release v0.1.2"
+git flow release finish <0.1.2> -m "chore(release): <0.1.2>"
 
 # A finished release lands in three places - push all three.
 # `git push --tags` pushes tags only, so main still needs its own push.
@@ -152,12 +154,12 @@ git flow hotfix publish <0.1.2>
 git pull origin hotfix/<0.1.2>
 
 # Commit and push as you go
-git commit -m "Fix critical issue"
+git commit -m "fix(<scope>): <what it corrects>"
 git push
 
 # Finish the hotfix (merges into main and develop, and tags the release)
 # Resolve any merge conflicts before pushing anything
-git flow hotfix finish <0.1.2> -m "Hotfix v0.1.2"
+git flow hotfix finish <0.1.2> -m "chore(release): <0.1.2>"
 
 # A finished hotfix lands in three places - push all three.
 # `git push --tags` pushes tags only, so main still needs its own push.
@@ -184,11 +186,38 @@ where the base isn't optional: name the tag you're extending explicitly.
 git flow support start <0.1.x> <0.1.2>
 
 # From here, commit, tag and push by hand - there's no `support finish` to do it:
-git commit -m "Fix critical issue on the 0.1.x line"
-git tag -a <0.1.3> -m "Release v0.1.3"
+git commit -m "fix(<scope>): <what it corrects>"
+git tag -a <0.1.3> -m "chore(release): <0.1.3>"
 git push origin support/<0.1.x>
 git push origin --tags
 ```
+
+---
+
+## Commit messages
+
+[Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/), with the
+Angular type set:
+
+```
+<type>(<scope>)!: <subject>
+
+<body>
+
+<footers>
+```
+
+- **Type** — what the commit does for a reader of the history: `feat`, `fix`, `perf`,
+  `refactor`, `test`, `docs`, `style`, `build`, `ci`, `chore` or `revert`.
+- **Scope** — the top-level package or module changed, as spelt in the code. Omit it for
+  a change that cuts across the codebase.
+- **Subject** — imperative and lowercase, no full stop; the whole header 72 characters
+  at most.
+- **Body** — why, not how, in three lines at most. Leave it out when the header says it
+  all, except for `feat`, `fix`, `perf`, `refactor` and `revert`.
+- **Breaking change** — `!` before the colon and a `BREAKING-CHANGE:` footer.
+- **Release** — the version bump is one commit, `chore(release): <version>`, and the tag
+  message is the same line.
 
 ---
 
