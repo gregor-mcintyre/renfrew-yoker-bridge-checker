@@ -2,6 +2,8 @@ import re
 from datetime import date, datetime, time, timedelta
 from unittest.mock import ANY, Mock, call, patch
 
+import pytest
+
 from bridge_closures._parsing import (
     _DATE_HEADING_OR_TIME_RANGE_PATTERN,
     _build_bridge_closure_with_london_timezone,
@@ -40,27 +42,34 @@ def _first_match(displayed_text: str) -> re.Match[str]:
     return match
 
 
-class TestBuildDateFromMatch:
-    def test_time_with_ordinal_suffix_returns_the_date(self):
-        match = _first_match(closures_webpage_text.DATE_HEADING)
+@pytest.mark.parametrize(
+    "date_heading",
+    [
+        pytest.param(closures_webpage_text.DATE_HEADING, id="ordinal-suffix"),
+        pytest.param("Tuesday 15 September 2026", id="no-ordinal-suffix"),
+    ],
+)
+def test_build_date_from_match_returns_the_date(date_heading):
+    match = _first_match(date_heading)
 
-        assert _build_date_from_match(match) == _START_DATE
+    result = _build_date_from_match(match)
 
-    def test_time_without_ordinal_suffix_returns_the_date(self):
-        match = _first_match("Tuesday 15 September 2026")
-
-        assert _build_date_from_match(match) == _START_DATE
+    assert result == _START_DATE
 
 
-class TestParseTime:
-    def test_hour_only_returns_time_on_the_hour(self):
-        assert _parse_time("8am") == time(8)
+@pytest.mark.parametrize(
+    ("raw", "expected_time"),
+    [
+        pytest.param("8am", time(8), id="hour-only"),
+        pytest.param("8:30am", time(8, 30), id="colon-minutes"),
+        pytest.param("10.45pm", time(22, 45), id="dot-minutes"),
+        pytest.param("11.10 am", time(11, 10), id="spaced-meridiem"),
+    ],
+)
+def test_parse_time_returns_the_time(raw, expected_time):
+    result = _parse_time(raw)
 
-    def test_hour_and_minutes_separated_by_colon_returns_time(self):
-        assert _parse_time("8:30am") == time(8, 30)
-
-    def test_hour_and_minutes_separated_by_dot_returns_time(self):
-        assert _parse_time("10.45pm") == time(22, 45)
+    assert result == expected_time
 
 
 class TestResolveEndDate:
@@ -136,7 +145,9 @@ class TestParseBridgeClosures:
         mock_build_date_from_match,
         mock_build_closure_from_match,
     ):
-        result = parse_bridge_closures(closures_webpage_text.NO_CLOSURES_LINE)
+        result = parse_bridge_closures(
+            closures_webpage_text.NO_CLOSURES_LINE_CAPITALISED,
+        )
 
         assert result == []
 
@@ -149,51 +160,110 @@ class TestParseBridgeClosures:
 
         assert result == []
 
+    @pytest.mark.parametrize(
+        "no_closures_line",
+        [
+            pytest.param(
+                closures_webpage_text.NO_CLOSURES_LINE_CAPITALISED,
+                id="capitalised",
+            ),
+            pytest.param(
+                closures_webpage_text.NO_CLOSURES_LINE_LOWERCASE,
+                id="lowercase",
+            ),
+        ],
+    )
     def test_returns_empty_list_when_a_date_heading_has_no_time_range(
         self,
         mock_build_date_from_match,
         mock_build_closure_from_match,
+        no_closures_line,
     ):
         result = parse_bridge_closures(
-            f"{closures_webpage_text.DATE_HEADING}"
-            f"\n\n{closures_webpage_text.NO_CLOSURES_LINE}",
+            f"{closures_webpage_text.DATE_HEADING}\n\n{no_closures_line}",
         )
 
         assert result == []
 
-    def test_tolerates_markup_between_a_date_heading_and_its_time_range(
+    def test_builds_no_closure_from_the_last_updated_line(
         self,
         mock_build_date_from_match,
         mock_build_closure_from_match,
     ):
         webpage_text = (
-            f"<h3>{closures_webpage_text.DATE_HEADING}</h3>"
-            f"\n  <p>\n{closures_webpage_text.TIME_RANGE}</p>"
+            f"{closures_webpage_text.DATE_HEADING}"
+            f"\n{closures_webpage_text.TIME_RANGE}"
+            f"\n{closures_webpage_text.LAST_UPDATED_LINE}"
         )
 
+        parse_bridge_closures(webpage_text)
+
+        mock_build_closure_from_match.assert_called_once()
+
+    @pytest.mark.parametrize(
+        "webpage_text",
+        [
+            pytest.param(
+                f"<h3>{closures_webpage_text.DATE_HEADING}</h3>"
+                f"\n  <p>\n{closures_webpage_text.TIME_RANGE}</p>",
+                id="markup-between-heading-and-range",
+            ),
+            pytest.param(
+                f"{closures_webpage_text.DATE_HEADING}"
+                f"\n\n{closures_webpage_text.CLOSURE_NOTICE}"
+                f"\n\n{closures_webpage_text.TIME_RANGE}",
+                id="heading-before-notice",
+            ),
+            pytest.param(
+                f"{closures_webpage_text.CLOSURE_NOTICE}"
+                f"\n\n{closures_webpage_text.DATE_HEADING}"
+                f"\n\n{closures_webpage_text.TIME_RANGE}",
+                id="heading-after-notice",
+            ),
+        ],
+    )
+    def test_known_layout_returns_the_closure(
+        self,
+        mock_build_date_from_match,
+        mock_build_closure_from_match,
+        webpage_text,
+    ):
         result = parse_bridge_closures(webpage_text)
 
         assert result == [mock_build_closure_from_match.return_value]
 
-    def test_accepts_a_dot_separated_time(
+    @pytest.mark.parametrize(
+        "time_range",
+        [
+            pytest.param(closures_webpage_text.TIME_RANGE, id="with-from"),
+            pytest.param("8am to 9am", id="without-from"),
+            pytest.param("From 8.00am to 9.00pm", id="dot-minutes"),
+            pytest.param("From 11.10 am to 1.00pm", id="spaced-meridiem"),
+            pytest.param("11.25pm (14th) to 12.30am (15th)", id="day-notes"),
+        ],
+    )
+    def test_known_time_range_format_returns_the_closure(
         self,
         mock_build_date_from_match,
         mock_build_closure_from_match,
+        time_range,
     ):
         result = parse_bridge_closures(
-            f"{closures_webpage_text.DATE_HEADING}\n\nFrom 8.00am to 9.00pm",
+            f"{closures_webpage_text.DATE_HEADING}\n\n{time_range}",
         )
 
         assert result == [mock_build_closure_from_match.return_value]
 
-    def test_accepts_a_time_range_without_from(
+    def test_closure_listed_twice_is_returned_once(
         self,
         mock_build_date_from_match,
         mock_build_closure_from_match,
     ):
-        result = parse_bridge_closures(
-            f"{closures_webpage_text.DATE_HEADING}\n\n8am to 9am",
+        section = (
+            f"{closures_webpage_text.DATE_HEADING}\n{closures_webpage_text.TIME_RANGE}"
         )
+
+        result = parse_bridge_closures(f"{section}\n{section}")
 
         assert result == [mock_build_closure_from_match.return_value]
 

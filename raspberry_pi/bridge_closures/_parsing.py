@@ -1,13 +1,42 @@
 """Parses closures from text displayed on the Renfrew-Yoker bridge closures webpage.
 
-The webpage has a few known formatting inconsistencies, each of which are handled:
+The webpage is formatted inconsistently. Every variation seen so far is handled and
+listed below. Each is a separate case, and one page can show several at once.
 
-    - The ordinal suffix on a date is sometimes present, e.g. `8th`, and sometimes
-      absent, e.g. `8`.
-    - The hour and minutes of a closure time are separated by either a colon, e.g.
-      `8:30am`, or a dot, e.g. `8.30am`.
-    - A time range is sometimes prefixed with `From`, e.g. `From 8am to 9am`, and
-      sometimes not, e.g. `8am to 9am`.
+Page layout:
+
+    - The closures are listed twice: once in the banner at the top of the page, then
+      again in the article below it. The repeats are dropped, so each closure is
+      returned once.
+    - The banner ends with a `Last Updated - <date> at <time>` line. The date looks like
+      a date heading, but no time range follows it, so it yields nothing.
+    - The date heading is sometimes above the "will be closed" notice, and sometimes
+      below it. Either way, the time ranges after it belong to it.
+    - Several dates can be listed, each with its own closures.
+    - A date with no closures shows either `No Closures Currently Planned` or
+      `No closures currently planned`. There is no time range, so it yields nothing.
+
+Date heading:
+
+    - The ordinal suffix on the day is sometimes present, e.g. `Sunday 13th September
+      2026`, and sometimes absent, e.g. `Friday 11 September 2026`.
+
+Time:
+
+    - The minutes are absent, e.g. `5pm`, or follow a colon, e.g. `6:30pm`, or follow a
+      dot, e.g. `7.30am`.
+    - A space sometimes precedes `am` or `pm`, e.g. `11.10 am`.
+
+Time range:
+
+    - A time range is sometimes prefixed with `From`, e.g. `From 5pm to 6:30pm`, and
+      sometimes not, e.g. `2.10pm to 2.25pm`.
+    - A date can have several time ranges, each of which is a separate closure.
+    - A range whose end time is earlier than the start time runs past midnight, e.g.
+      `From 11pm to 1am`, so ends on the next day.
+    - A range that runs past midnight sometimes names the day of each time in
+      parentheses, e.g. `11.25pm (14th) to 12.30am (15th)`. The days are ignored, as the
+      end time already shows the range runs past midnight.
 """
 
 import calendar
@@ -29,12 +58,20 @@ _DATE_HEADING = (
     rf"(?P<month>{_MONTH_NAMES})\s+(?P<year>\d{{4}})"
 )
 
-# Matches a closure time such as "8am", "8:30am", or "9.45pm". The minutes are optional
-# and can be separated by a colon or a dot.
-_TIME = r"\d{1,2}(?:[:.]\d{2})?[ap]m"
+# Matches a closure time such as "8am", "8:30am", "9.45pm", or "11.10 am". The minutes
+# are optional and can be separated by a colon or a dot, and a space can precede the
+# meridiem.
+_TIME = r"\d{1,2}(?:[:.]\d{2})?\s*[ap]m"
 
-# Matches a "[From] X to Y" time range. The leading "From" is optional.
-_TIME_RANGE = rf"(?:From\s+)?(?P<start_time>{_TIME})\s+to\s+(?P<end_time>{_TIME})"
+# Matches the optional day of a time in parentheses, such as " (14th)" or " (15)".
+_DAY_NOTE = r"(?:\s*\(\d{1,2}(?:st|nd|rd|th)?\))?"
+
+# Matches a "[From] X to Y" time range. The leading "From" is optional, as is the day
+# in parentheses after each time.
+_TIME_RANGE = (
+    rf"(?:From\s+)?(?P<start_time>{_TIME}){_DAY_NOTE}"
+    rf"\s+to\s+(?P<end_time>{_TIME}){_DAY_NOTE}"
+)
 
 _DATE_HEADING_OR_TIME_RANGE_PATTERN = re.compile(
     rf"(?P<date_heading>{_DATE_HEADING})|{_TIME_RANGE}",
@@ -65,6 +102,7 @@ def _parse_time(raw: str) -> time:
         - `8am`
         - `8:30am`
         - `10.45pm`
+        - `11.10 am`
 
     Args:
         raw: The time as displayed on the webpage.
@@ -72,7 +110,7 @@ def _parse_time(raw: str) -> time:
     Returns:
         The closure time displayed on the webpage parsed into a `time`.
     """
-    normalised = raw.replace(".", ":")
+    normalised = "".join(raw.split()).replace(".", ":")
 
     if ":" not in normalised:
         normalised = f"{normalised[:-2]}:00{normalised[-2:]}"
@@ -150,11 +188,14 @@ def parse_bridge_closures(webpage_text: str) -> list[BridgeClosure]:
     time range after it is a closure on that date. A time range found before the first
     date heading has no date, so is ignored.
 
+    The webpage lists each closure twice, so a closure already found is skipped.
+
     Args:
         webpage_text: The text displayed on the webpage.
 
     Returns:
-        `_build_closure_from_match` for every time range found under a date heading.
+        `_build_closure_from_match` for every distinct time range found under a date
+        heading.
     """
     closures: list[BridgeClosure] = []
     start_date: date | None = None
@@ -165,6 +206,8 @@ def parse_bridge_closures(webpage_text: str) -> list[BridgeClosure]:
 
         elif start_date is not None:
             closure = _build_closure_from_match(start_date, match)
-            closures.append(closure)
+
+            if closure not in closures:
+                closures.append(closure)
 
     return closures

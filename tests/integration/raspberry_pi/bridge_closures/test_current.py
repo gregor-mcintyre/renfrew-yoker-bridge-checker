@@ -1,4 +1,4 @@
-"""Tests `get_current_bridge_closures`, including real fetch and parse behaviour."""
+"""Tests `get_current_bridge_closures` on full webpages, including real parsing."""
 
 from unittest.mock import patch
 
@@ -42,7 +42,7 @@ class TestGetCurrentBridgeClosures:
 
         assert result == []
 
-    def test_closure_on_webpage_returns_the_parsed_closure(
+    def test_closure_listed_twice_on_webpage_is_returned_once(
         self,
         mock_requests_get,
     ):
