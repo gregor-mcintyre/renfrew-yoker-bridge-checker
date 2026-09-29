@@ -7,19 +7,53 @@ repos:
       - id: ruff-format
         args: [ --check ]
 
-  # mypy must stay recent enough to accept python_version = "3.14"; the 1.x line
-  # rejects it. Type stubs get added to additional_dependencies alongside the
-  # feature that first needs them.
+  # mypy must stay recent enough to accept python_version = "3.14"; the 1.x line rejects
+  # it. Type stubs get added to additional_dependencies alongside the feature that first
+  # needs them.
+  #
+  # pytest itself is here too, not just its stubs: mypy runs in this hook's own isolated
+  # environment, and without pytest importable there it can't resolve
+  # `@pytest.fixture`'s type, treats the decorator as untyped, and flags every fixture -
+  # even though the same check is clean via `.venv`, where pytest is installed.
+  #
+  # mypy, vulture and pytest check the whole repository on every commit, not just the
+  # staged files: a change can break a file it never touches - a type error in an
+  # importer, dead code left by a deleted caller, a failing test elsewhere. They run even
+  # when nothing of their type is staged, because pre-commit never passes a deleted file,
+  # so a commit that only deletes a module would otherwise skip them. mypy takes no
+  # `--ignore-missing-imports`: it would hide an import of a deleted module.
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v2.3.1
     hooks:
       - id: mypy
+        args: [ . ]
+        pass_filenames: false
+        always_run: true
+        additional_dependencies:
+          [
+            types-beautifulsoup4==4.12.0.20250516,
+            pytest==9.1.1,
+            "boto3-stubs[ssm]==1.43.87",
+            curl_cffi==0.16.3,
+          ]
 
   - repo: local
     hooks:
       - id: vulture
         name: vulture
-        entry: vulture --min-confidence 80
+        entry: vulture --min-confidence 80 .
         language: system
         types: [ python ]
-        pass_filenames: true
+        pass_filenames: false
+        always_run: true
+      - id: pytest
+        name: pytest
+        entry: pytest -q
+        language: system
+        pass_filenames: false
+        always_run: true
+      - id: crlf-line-endings
+        name: crlf-line-endings
+        entry: '\r$'
+        language: pygrep
+        types: [ text ]
