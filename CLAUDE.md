@@ -139,6 +139,9 @@ presence and shape; everything below is voice, which they don't check.
   `None`, `42`, `my_lib`. Not for string literals, unless specifying a particular
   string value.
 - Generators use `Yields:`.
+- **Variadic parameters** are listed in `Args:` under the bare name, without asterisks —
+  `lines:`, not `*lines:`; `kwargs:`, not `**kwargs:`. The signature already carries the
+  form.
 - **Blank lines:** module/class docstring → one blank line → content. Function/method
   docstring → **no** blank line, code starts immediately.
 - **Articles:** "A"/"An" for a general type, "The" for a specific referent tied to this
