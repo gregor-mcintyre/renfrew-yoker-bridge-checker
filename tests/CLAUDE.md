@@ -20,20 +20,22 @@ The canonical test commands — `README.md` copies them, so change them here fir
 
 ## Overrides of the root `CLAUDE.md`
 
-- **Docstrings** — required only where the table under *Docstrings and annotations*
-  below says so; most test files carry none, and the root file's voice and
-  `Args:`/`Returns:` rules apply only where one is required.
+- **Docstrings** — test classes and test functions carry none, and the module docstring
+  of a test file follows the table under *Docstrings and annotations* below. Every
+  other class and function, private or not, keeps the root file's docstring rules in
+  full.
 - **Module naming** — the root file bans `helpers`/`utils`/`common` as module names;
   `helpers.py` is the sanctioned name for shared test helpers here.
 - **Helper placement** — a helper used by one test module stays in it, above its first
   caller; one shared by two or more moves to a locality-scoped module beside them.
-- **Annotations** — test functions carry none; fixtures and shared modules keep the
-  production standard.
+- **Annotations** — test functions carry none; helpers, fixtures and shared modules
+  keep the production standard.
 
 `[[tool.mypy.overrides]]` relaxes `disallow_untyped_defs` and `disallow_incomplete_defs`
 for `tests.*`; the rest of strict still applies. `per-file-ignores` silences
 `D100`-`D103` on `tests/**/test_*.py`, so the docstring rules below are checked on
-review, not by tooling. Shared modules aren't covered by either, so theirs is enforced.
+review, not by tooling — the docstrings of helpers defined in a test module included.
+Shared modules aren't covered by either, so theirs is enforced.
 
 ---
 
@@ -226,18 +228,20 @@ targets from it.
 
 ## Docstrings and annotations
 
-| File                              | Module docstring    | Classes and functions |
-|-----------------------------------|---------------------|-----------------------|
-| Unit `test_*.py`                  | None                | None                  |
-| Integration or e2e `test_*.py`    | One line            | None                  |
-| `conftest.py`                     | One line            | —                     |
-| `helpers.py`, `patch_targets.py`… | Production standard | Production standard   |
+| File                              | Module docstring    | Test classes and functions | Helpers and fixtures |
+|-----------------------------------|---------------------|----------------------------|----------------------|
+| Unit `test_*.py`                  | None                | None                       | Production standard  |
+| Integration or e2e `test_*.py`    | One line            | None                       | Production standard  |
+| `conftest.py`                     | One line            | —                          | Production standard  |
+| `helpers.py`, `patch_targets.py`… | Production standard | —                          | Production standard  |
 
 - The one-line docstring is one plain sentence, measured — not eyeballed — against 88
   columns. Name the entry point and describe the real collaboration in general terms; a
   name-by-name list of collaborators overclaims and runs long.
   `"""Tests `fetch_user_data`, including real fetch and parse errors."""`
   `"""Tests the request handler end to end, from API request to JSON response."""`
-- Fixtures always carry a full docstring and annotations, wherever they live — they are
-  the suite's API, as are shared helpers.
+- Helpers and fixtures always carry a full docstring and annotations, wherever they
+  live — private in a `test_*.py` or shared. Only test classes and test functions are
+  exempt: a test is named for what it asserts, but other code calls a helper, so it has
+  to say what it takes and returns.
 - Test functions carry no annotations — no `-> None`, no parameter types.
