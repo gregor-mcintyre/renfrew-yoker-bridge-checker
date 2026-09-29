@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "renfrew-yoker-bridge-checker"
-version = "0.0.0"
+version = "0.1.0"
 description = "Check when the Renfrew-Yoker bridge is closed by asking Amazon Alexa."
 requires-python = ">=3.14"
 dependencies = [
