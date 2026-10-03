@@ -8,35 +8,36 @@ Page layout:
     - The closures are listed twice: once in the banner at the top of the page, then
       again in the article below it. The repeats are dropped, so each closure is
       returned once.
-    - The banner ends with a `Last Updated - <date> at <time>` line. The date looks like
-      a date heading, but no time range follows it, so it yields nothing.
-    - The date heading is sometimes above the "will be closed" notice, and sometimes
+    - The banner ends with a `"Last Updated - <date> at <time>"` line. The date looks
+      like a date heading, but no time range follows it, so it yields nothing.
+    - The date heading is sometimes above the `"will be closed"` notice, and sometimes
       below it. Either way, the time ranges after it belong to it.
     - Several dates can be listed, each with its own closures.
-    - A date with no closures shows either `No Closures Currently Planned` or
-      `No closures currently planned`. There is no time range, so it yields nothing.
+    - A date with no closures shows either `"No Closures Currently Planned"` or
+      `"No closures currently planned"`. There is no time range, so it yields nothing.
 
 Date heading:
 
-    - The ordinal suffix on the day is sometimes present, e.g. `Sunday 13th September
-      2026`, and sometimes absent, e.g. `Friday 11 September 2026`.
+    - The ordinal suffix on the day is sometimes present, e.g.
+      `"Sunday 13th September 2026"`, and sometimes absent, e.g.
+      `"Friday 11 September 2026"`.
 
 Time:
 
-    - The minutes are absent, e.g. `5pm`, or follow a colon, e.g. `6:30pm`, or follow a
-      dot, e.g. `7.30am`.
-    - A space sometimes precedes `am` or `pm`, e.g. `11.10 am`.
+    - The minutes are absent, e.g. `"5pm"`, or follow a colon, e.g. `"6:30pm"`, or
+      follow a dot, e.g. `"7.30am"`.
+    - A space sometimes precedes `"am"` or `"pm"`, e.g. `"11.10 am"`.
 
 Time range:
 
-    - A time range is sometimes prefixed with `From`, e.g. `From 5pm to 6:30pm`, and
-      sometimes not, e.g. `2.10pm to 2.25pm`.
+    - A time range is sometimes prefixed with `"From"`, e.g. `"From 5pm to 6:30pm"`, and
+      sometimes not, e.g. `"2.10pm to 2.25pm"`.
     - A date can have several time ranges, each of which is a separate closure.
     - A range whose end time is earlier than the start time runs past midnight, e.g.
-      `From 11pm to 1am`, so ends on the next day.
+      `"From 11pm to 1am"`, so ends on the next day.
     - A range that runs past midnight sometimes names the day of each time in
-      parentheses, e.g. `11.25pm (14th) to 12.30am (15th)`. The days are ignored, as the
-      end time already shows the range runs past midnight.
+      parentheses, e.g. `"11.25pm (14th) to 12.30am (15th)"`. The days are ignored,
+      as the end time already shows the range runs past midnight.
 """
 
 import calendar
@@ -51,23 +52,23 @@ _MONTH_NUMBER_BY_NAME = {
 _MONTH_NAMES = "|".join(_MONTH_NUMBER_BY_NAME)
 _DAY_NAMES = "|".join(calendar.day_name)
 
-# Matches a date heading such as "Friday 11th September 2026" or "Friday 11 September
-# 2026". The ordinal suffix is optional.
+# Matches a date heading such as `"Friday 11th September 2026"` or `"Friday 11
+# September 2026"`. The ordinal suffix is optional.
 _DATE_HEADING = (
     rf"(?:{_DAY_NAMES})\s+(?P<day>\d{{1,2}})(?:st|nd|rd|th)?\s+"
     rf"(?P<month>{_MONTH_NAMES})\s+(?P<year>\d{{4}})"
 )
 
-# Matches a closure time such as "8am", "8:30am", "9.45pm", or "11.10 am". The minutes
-# are optional and can be separated by a colon or a dot, and a space can precede the
-# meridiem.
+# Matches a closure time such as `"8am"`, `"8:30am"`, `"9.45pm"`, or `"11.10 am"`. The
+# minutes are optional and can be separated by a colon or a dot, and a space can precede
+# the meridiem.
 _TIME = r"\d{1,2}(?:[:.]\d{2})?\s*[ap]m"
 
-# Matches the optional day of a time in parentheses, such as " (14th)" or " (15)".
+# Matches the optional day of a time in parentheses, such as `" (14th)"` or `" (15)"`.
 _DAY_NOTE = r"(?:\s*\(\d{1,2}(?:st|nd|rd|th)?\))?"
 
-# Matches a "[From] X to Y" time range. The leading "From" is optional, as is the day
-# in parentheses after each time.
+# Matches a `"[From] X to Y"` time range. The leading `"From"` is optional, as is the
+# day in parentheses after each time.
 _TIME_RANGE = (
     rf"(?:From\s+)?(?P<start_time>{_TIME}){_DAY_NOTE}"
     rf"\s+to\s+(?P<end_time>{_TIME}){_DAY_NOTE}"
@@ -99,10 +100,10 @@ def _parse_time(raw: str) -> time:
 
     Handles the following time formats:
 
-        - `8am`
-        - `8:30am`
-        - `10.45pm`
-        - `11.10 am`
+        - `"8am"`
+        - `"8:30am"`
+        - `"10.45pm"`
+        - `"11.10 am"`
 
     Args:
         raw: The time as displayed on the webpage.

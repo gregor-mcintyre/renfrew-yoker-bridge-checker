@@ -1,8 +1,8 @@
-# Paths assume the repository is cloned at /home/pi/renfrew-yoker-bridge-checker and
-# its virtual environment created at .venv, under the user `pi` - the username the
-# README's "Setting up the Raspberry Pi" has you pick in Raspberry Pi Imager. Edit User
-# and both paths if yours differ. PYTHONPATH is relative, so it resolves against
-# WorkingDirectory.
+# Paths assume the repository is cloned at `/home/pi/renfrew-yoker-bridge-checker` and
+# its virtual environment created at `.venv`, under the user `pi` - the username the
+# README's "Setting up the Raspberry Pi" has you pick in Raspberry Pi Imager. Edit
+# `User` and both paths if yours differ. `PYTHONPATH` is relative, so it resolves
+# against `WorkingDirectory`.
 #
 # Output is left to journald, which is what makes the logging of the scrape readable
 # through `journalctl -u bridge-checker.service`.
