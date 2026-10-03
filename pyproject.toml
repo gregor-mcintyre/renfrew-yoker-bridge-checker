@@ -22,7 +22,7 @@ dev = [
     "mypy",
     "vulture",
     "pre-commit",
-    "boto3-stubs[ssm]",
+    "boto3-stubs[ssm,lambda]",
 ]
 
 [tool.setuptools]
@@ -31,6 +31,11 @@ py-modules = []
 [tool.pytest.ini_options]
 pythonpath = ["shared", "raspberry_pi", "alexa_lambda"]
 testpaths = ["tests"]
+markers = [
+    "live: uses the deployed AWS resources - deselected, run with `pytest -m live`",
+]
+# Deselects the live checks; a `-m` on the command line replaces this one.
+addopts = "-m 'not live'"
 
 [tool.ruff]
 line-length = 88
