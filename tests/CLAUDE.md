@@ -15,6 +15,10 @@ The canonical test commands — `README.md` copies them, so change them here fir
 | One tier          | `pytest tests/unit`                          |
 | One file or test  | `pytest <path>` / `pytest -k <name>`         |
 | Coverage          | `pytest --cov`                               |
+| Live checks       | `pytest -m live`                             |
+
+Live checks are the tests marked `live`: they use the deployed AWS resources, so plain
+`pytest` leaves them out.
 
 ---
 
