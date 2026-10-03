@@ -4,8 +4,7 @@
 - **What it is:** An Alexa skill that reports when the Renfrew-Yoker pedestrian bridge
   is closed. A Raspberry Pi scrapes the council site on a schedule and caches the result
   in AWS SSM Parameter Store; an AWS Lambda reads that cache to answer voice requests
-  inside Alexa's 8-second window. The Lambda isn't in the repository yet, though
-  `pyproject.toml` already lists its `alexa_lambda` root.
+  inside Alexa's 8-second window. The Lambda lives in `alexa_lambda/`.
 - **Python:** 3.14
 - **Test conventions:** `tests/CLAUDE.md`. The rules here govern test code too, except
   where that file overrides them — it is the only place test rules live.
