@@ -23,3 +23,6 @@ __pycache__/
 # Test coverage
 .coverage
 htmlcov/
+
+# The zip built for AWS Lambda
+build/
