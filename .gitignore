@@ -17,9 +17,13 @@ __pycache__/
 .idea/
 .vscode/
 
-# Claude Code local, per-machine settings (a shared .claude/settings.json can still be committed)
+# Claude Code local, per-machine settings (a shared `.claude/settings.json` can still be
+# committed)
 .claude/settings.local.json
 
 # Test coverage
 .coverage
 htmlcov/
+
+# The zip built for AWS Lambda
+build/

@@ -4,8 +4,7 @@
 - **What it is:** An Alexa skill that reports when the Renfrew-Yoker pedestrian bridge
   is closed. A Raspberry Pi scrapes the council site on a schedule and caches the result
   in AWS SSM Parameter Store; an AWS Lambda reads that cache to answer voice requests
-  inside Alexa's 8-second window. The Lambda isn't in the repository yet, though
-  `pyproject.toml` already lists its `alexa_lambda` root.
+  inside Alexa's 8-second window. The Lambda lives in `alexa_lambda/`.
 - **Python:** 3.14
 - **Test conventions:** `tests/CLAUDE.md`. The rules here govern test code too, except
   where that file overrides them — it is the only place test rules live.
@@ -114,7 +113,13 @@ its own submodule.
   name; don't retype the literal. `_BASE_URL + "/status"`, not
   `"https://example.invalid/status"` — the second retypes a literal the first constant
   already owns, and the two copies can drift the moment the host changes. Nothing
-  catches this; it's on review.
+  catches this; it's on review. It holds in test code too, where `tests/CLAUDE.md`
+  names the one exception.
+- **Dicts with fixed keys are typed.** A function that builds or accepts a dict with a
+  known set of keys annotates it with a `TypedDict` — a dataclass if it never leaves
+  Python — not `dict[str, Any]`, which hides the keys from mypy. Keep `dict[str, Any]`
+  for a payload from outside that the project doesn't own and only partly reads, such
+  as an incoming event. A wire format keeps its keys as written, mixedCase included.
 - **Inline single-use variables** unless inlining hurts readability — as when the
   binding names an otherwise opaque expression. `year_str = str(year)`, used once, adds
   nothing: inline it. `parsed_date = parse_iso_date(raw_input)`, used once, clarifies
@@ -134,10 +139,13 @@ presence and shape; everything below is voice, which they don't check.
   keeps its own `Args:` and `Returns:`, but names the helper for anything its own
   docstring already covers — e.g., name `_validate_dates` rather than paraphrase what
   its docstring already explains.
-- **Single backticks for code references** in prose — variable, class, method,
-  library, package and tool names, plus `None` and literal numbers: `my_var`, `MyClass`,
-  `None`, `42`, `my_lib`. Not for string literals, unless specifying a particular
-  string value.
+- **Single backticks for code references** in prose, comments included — variable,
+  class, method, library, package and tool names, plus `None` and numbers: `my_var`,
+  `MyClass`, `None`, `42`, `my_lib`. A string literal takes them too, quotes inside,
+  whether it is an exact value or only an example of one: `"utf-8"`, `"8:55am"`. A name
+  that is not a Python literal — a file path, time zone key or environment variable —
+  takes them without quotes: `Europe/London`, `AWS_PROFILE`. Ordinary words never do.
+  Backticks mark source text, and an example string is source text too.
 - Generators use `Yields:`.
 - **Variadic parameters** are listed in `Args:` under the bare name, without asterisks —
   `lines:`, not `*lines:`; `kwargs:`, not `**kwargs:`. The signature already carries the

@@ -7,9 +7,9 @@ repos:
       - id: ruff-format
         args: [ --check ]
 
-  # mypy must stay recent enough to accept python_version = "3.14"; the 1.x line rejects
-  # it. Type stubs get added to additional_dependencies alongside the feature that first
-  # needs them.
+  # mypy must stay recent enough to accept `python_version = "3.14"`; the 1.x line
+  # rejects it. Type stubs get added to `additional_dependencies` alongside the
+  # feature that first needs them.
   #
   # pytest itself is here too, not just its stubs: mypy runs in this hook's own isolated
   # environment, and without pytest importable there it can't resolve
@@ -33,7 +33,7 @@ repos:
           [
             types-beautifulsoup4==4.12.0.20250516,
             pytest==9.1.1,
-            "boto3-stubs[ssm]==1.43.87",
+            "boto3-stubs[ssm,lambda]==1.43.87",
             curl_cffi==0.16.3,
           ]
 

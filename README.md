@@ -16,6 +16,7 @@ page: https://www1.renfrewshire.gov.uk/article/14478/Check-when-Renfrew-Bridge-i
 - [Running the tests](#running-the-tests)
 - [Tooling](#tooling)
 - [Setting up the Raspberry Pi](#setting-up-the-raspberry-pi)
+- [Setting up the Alexa skill](#setting-up-the-alexa-skill)
 - [Contributing](#contributing)
 
 ---
@@ -68,6 +69,8 @@ place, and Alexa keeps answering.
 - A Raspberry Pi that runs the 64-bit Raspberry Pi OS, to run the scrape on a schedule -
   see [Setting up the Raspberry Pi](#setting-up-the-raspberry-pi) for exactly what it
   needs
+- Any Alexa device, to ask - see
+  [Setting up the Alexa skill](#setting-up-the-alexa-skill)
 
 ---
 
@@ -111,7 +114,7 @@ administration like the steps below, never for the scrape itself.
 
 Two safety nets are worth setting up straight away:
 
-- **Multi-factor authentication (MFA) for the root user** - under your account name at
+- **Multifactor authentication (MFA) for the root user** - under your account name at
   the top right, **Security credentials** → **Assign MFA device**.
 - **A spending alert** - search the console for **Budgets** and create one from the
   **Zero spend budget** template, which emails you if anything ever starts costing
@@ -228,6 +231,11 @@ pytest
 pytest tests/unit
 pytest tests/integration
 pytest tests/e2e
+
+# The live checks against the deployed AWS resources, which the commands above leave
+# out - they need credentials, see "Checking it automatically" under "Setting up the
+# Alexa skill":
+pytest -m live
 
 # A single file:
 pytest tests/unit/raspberry_pi/bridge_closures/test_parsing.py
@@ -397,8 +405,8 @@ uv pip install -e .
 .venv/bin/python -c "import sys, boto3, bs4, curl_cffi; print(sys.version)"
 ```
 
-It prints a version starting `3.14`. An `ImportError` means the install step failed -
-scroll back through its output for the error.
+It prints a version starting `3.14`. An `ImportError` means the installation step
+failed - scroll back through its output for the error.
 
 ### 5. Give the Pi its own AWS access key
 
@@ -572,6 +580,303 @@ shows the last 50 log lines:
 | `AccessDenied` for `ssm:PutParameter`                                                                             | The IAM policy doesn't cover the parameter - check the policy JSON, and that the region in `config` is `eu-west-1`.                                                                                                       |
 | `Signature expired` or certificate errors                                                                         | The Pi's clock is wrong. `timedatectl` should say `System clock synchronized: yes`; the Pi sets its clock over the network, so check the connection.                                                                      |
 | `status=203/EXEC` in `systemctl status`                                                                           | systemd can't find `.venv/bin/python` - the repository isn't at `/home/pi/renfrew-yoker-bridge-checker`, or the username isn't `pi`. Edit `bridge-checker.service` to match, then copy it and reload as in *Updating it*. |
+
+---
+
+## Setting up the Alexa skill
+
+The skill is two parts: an **AWS Lambda function** that reads the cache the scrape
+writes and works out what to say, and an **Alexa skill** that turns what you say into a
+request to it. Every step ends with a check that proves it worked - don't move on until
+it passes.
+
+### Before you start
+
+- **The AWS account, region and cache** from [Running the scrape](#running-the-scrape).
+  The cache has to have been written at least once, either by the Raspberry Pi
+  ([Setting up the Raspberry Pi](#setting-up-the-raspberry-pi)) or by running the scrape
+  by hand on your computer. The skill only trusts a cache written in the last hour, so
+  if nothing is scraping on a schedule yet, run the scrape again just before each test
+  below. **Check:** in the AWS console, **Systems Manager** → **Parameter Store**,
+  with Ireland selected, shows `/renfrew-yoker-bridge-checker/closures` with a recent
+  **Last modified date**.
+- **An Alexa developer account** - free, and made by signing in at
+  [developer.amazon.com/alexa/console/ask](https://developer.amazon.com/alexa/console/ask).
+  Sign in with **the same Amazon account your Echo is registered to** - a skill in
+  development only appears on the devices of the account that made it. In the Alexa
+  app, **More** → **Settings** → **Account Settings** shows which account that is.
+- **This repository installed** on your computer, as in [Installation](#installation).
+
+### 1. Build the zip
+
+AWS Lambda runs a zip of the code. From the repository root, with `.venv` activated:
+
+```bash
+python alexa_lambda/deployment_zip.py
+```
+
+The zip holds the skill, the modules it shares with the scrape, and the `tzdata` package
+that gives Python the London time zone. It leaves out `boto3`, which Lambda already
+provides.
+
+**Check:** it prints `Wrote` and the path of `build/alexa_lambda.zip`. The `build`
+folder is ignored by Git.
+
+### 2. Create the skill
+
+1. In the [Alexa developer console](https://developer.amazon.com/alexa/console/ask),
+   choose **Create Skill**.
+2. **Skill name:** `Renfrew-Yoker Bridge`. **Primary locale:** *English (UK)*.
+3. **Type of experience:** *Other*. **Model:** *Custom*. **Hosting service:** *Provision
+   your own*. **Template:** *Start from scratch*. Then **Create skill**.
+4. In **Build** → **Interaction Model** → **JSON Editor**, replace everything with
+   the contents of
+   [alexa_lambda/interaction_model.json](alexa_lambda/interaction_model.json). Choose
+   **Save Model**, then **Build Model**.
+5. In **Build** → **Endpoint**, copy **Your Skill ID** - it starts `amzn1.ask.skill.`.
+   Keep it for step 5.
+
+The invocation name is `renfrew yoker bridge` - Alexa allows only lowercase letters and
+spaces there, so it has no hyphen or capitals. It is what you say after "Alexa, open"
+or "Alexa, ask".
+
+**Check:** the build finishes with a **Full Build Successful** message, and
+**Interaction Model** → **Intents** lists `GetBridgeClosuresIntent`.
+
+### 3. Create the Lambda function
+
+1. In the AWS console, open **Lambda** with Ireland selected - the region has to be the
+   one the cache lives in, and one Alexa skills use in Europe.
+2. **Create function** → **Author from scratch**. **Function name:**
+   `renfrew-yoker-bridge-checker-alexa`. **Runtime:** *Python 3.14*. Leave the rest, and
+   **Create function**.
+3. On the **Code** tab, choose **Upload from** → **.zip file**, pick
+   `build/alexa_lambda.zip`, and **Save**.
+4. Still on the **Code** tab, under **Runtime settings**, choose **Edit** and set the
+   **Handler** to `bridge_skill.lambda_function.lambda_handler`. Save.
+5. On the **Configuration** tab → **General configuration** → **Edit**, set **Memory**
+   to `256` MB and **Timeout** to `7` seconds. Alexa gives up after 8
+   seconds, so a longer timeout would only be wasted, and `boto3` is slow to load with
+   less memory.
+
+**Check:** on the **Test** tab, choose **Create new event**, give it any name, and
+replace the body with the following. It is the smallest request Alexa can send, and it
+asks the function to describe the bridge closures - so it reaches the cache too, which
+will fail with `AccessDeniedException` until step 4 is done:
+
+```json
+{"request": {"type": "LaunchRequest"}}
+```
+
+Run it. Until step 4 the result is the apology `Sorry, I can't get the Renfrew-Yoker
+bridge closures right now.` in `outputSpeech`, and that is the right outcome: the
+function loaded, and only the permission is missing.
+
+### 4. Let the function read the cache
+
+The function runs as an **execution role** that step 3 created, which by default can do
+nothing but write its own logs.
+
+1. On the **Configuration** tab → **Permissions**, open the role name under **Execution
+   role**. It opens in **IAM**.
+2. **Add permissions** → **Create inline policy**, switch the editor to **JSON**, and
+   paste the policy below. It allows reading the one parameter in Ireland, and nothing
+   else.
+
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Allow",
+         "Action": "ssm:GetParameter",
+         "Resource": "arn:aws:ssm:eu-west-1:*:parameter/renfrew-yoker-bridge-checker/closures"
+       }
+     ]
+   }
+   ```
+3. Name it `read-bridge-closures-cache` and create it.
+
+**Check:** run the test event from step 3 again. `outputSpeech` now says whether the
+Renfrew-Yoker bridge is open or closed. If it says the site could not be checked
+recently, the cache is more than an hour old - run the scrape again first.
+
+### 5. Let only your skill call the function
+
+Without this, nothing - Alexa included - is allowed to call the function.
+
+1. On the function's **Configuration** tab → **Triggers**, choose **Add trigger**.
+2. Choose **Alexa** → **Alexa Skills Kit**.
+3. Leave **Skill ID verification** on, paste the skill ID from step 2, and **Add**.
+
+**Check:** the trigger is listed on the function, showing your skill ID.
+
+### 6. Point the skill at the function
+
+1. On the function's page, copy its **Function ARN** from the top right - a long name
+   starting `arn:aws:lambda:eu-west-1:`.
+2. In the Alexa developer console, in **Build** → **Endpoint**, choose **AWS Lambda
+   ARN**, paste it into **Default Region**, and **Save**.
+
+**Check:** the save succeeds without an error about the ARN.
+
+### 7. Test in the console
+
+1. In the Alexa developer console, open the **Test** tab and switch **Skill testing is
+   enabled in** to *Development*.
+2. Type `open renfrew yoker bridge` and press Enter.
+
+**Check:** the skill answers with the same closures as
+[the council page](https://www1.renfrewshire.gov.uk/article/14478/Check-when-Renfrew-Bridge-is-closed-to-vehicles-pedestrians-and-cyclists).
+Then try `ask renfrew yoker bridge is it closed`. In the **Skill I/O** panel, **JSON
+Output** shows the exact response. If it says it couldn't check the council website
+recently, the cache is more than an hour old - run the scrape again and retry.
+
+### 8. Try it on your Echo
+
+A skill in development is available only to your own Amazon account, and it has to be
+switched on there before any device will answer to it:
+
+1. In the Alexa app, open **More** → **Skills & Games** → **Your Skills** → **Dev**.
+2. Choose *Renfrew-Yoker Bridge*, then **Enable**.
+
+Run the scrape again first, as the skill only trusts a cache written in the last hour.
+Then say:
+
+- "Alexa, open Renfrew-Yoker Bridge"
+- "Alexa, ask Renfrew-Yoker Bridge is it closed"
+- "Alexa, ask Renfrew-Yoker Bridge when is it closed"
+
+Alexa's speech recognition doesn't recognise "Yoker", so these spoken phrases may not
+reach the skill. [Step 9](#9-short-phrases-with-routines) gets round that: a routine's
+action is typed, so you never say it.
+
+**Check:** the Echo answers with the same sentence as in step 7. The skill exists only
+in *English (UK)*, so the Echo has to use that language too. If it still can't find
+the skill, see the troubleshooting table below.
+
+### 9. Short phrases with routines
+
+Every phrase above starts with the wake word and the name of the skill. A **routine**
+in the Alexa app lets you say something much shorter instead, and have Alexa open the
+skill for you. Opening it answers straight away, so it is the whole conversation.
+
+1. In the Alexa app, open **More** → **Routines** and tap **+**.
+2. **Enter routine name:** `Bridge closures`.
+3. Under **When**, choose **Voice** and enter the phrase - `bridge closures` first.
+4. Under **Add action**, choose **Custom**, and type `open renfrew yoker bridge`.
+5. Choose the Echo under **From**, and **Save**.
+
+Then say "Alexa, bridge closures".
+
+Make a routine for each of the phrases you want, entering the same custom action in
+each - or add them all to one routine if the app lets you add more than one phrase:
+
+> bridge closures · bridge times · is the bridge closed · when does the bridge close ·
+> is the bridge open · when is the bridge closed · bridge status · check the bridge ·
+> can I cross the bridge · Renfrew-Yoker bridge
+
+Amazon offers no way to create routines from code, so this step stays by hand.
+
+**Check:** each phrase gets the closures answered aloud.
+
+### 10. Updating it
+
+After a change to the skill's code, on your computer build the zip again as in step 1,
+then in the Lambda console **Code** tab choose **Upload from** → **.zip file** and
+**Save**. A change to
+[alexa_lambda/interaction_model.json](alexa_lambda/interaction_model.json) is pasted
+into the JSON Editor as in step 2, then **Save Model** and **Build Model**.
+
+### 11. Checking it automatically
+
+Two checks in `tests/e2e/alexa_lambda` cover the skill from outside. The first runs
+with the rest of the tests, and needs nothing: it builds the zip, unpacks it somewhere
+of its own, and calls the function the way AWS does, against a stand-in for the cache.
+
+The second, marked `live`, is left out of `pytest` by default because it uses the real
+AWS resources. It runs the scrape itself, so it doesn't depend on a Raspberry Pi being
+set up, and checks the cache holds what the scrape just fetched. It then calls the
+deployed Lambda function and checks it says whether the bridge is open or closed, which
+it only does after reading a cache from the last hour. The test needs to write the
+cache, so the scrape runs under your default AWS profile from
+[Running the scrape](#running-the-scrape). The rest of the test uses a user of its own
+that can only read the cache and call the function:
+
+1. In **IAM** → **Users** → **Create user**, name it
+   `renfrew-yoker-bridge-checker-verifier`, leave console access off, and create it
+   without choosing any permissions.
+2. On it, **Add permissions** → **Create inline policy** → **JSON**, paste the
+   policy below, and name it `verify-alexa-skill`:
+
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Allow",
+         "Action": "ssm:GetParameter",
+         "Resource": "arn:aws:ssm:eu-west-1:*:parameter/renfrew-yoker-bridge-checker/closures"
+       },
+       {
+         "Effect": "Allow",
+         "Action": "lambda:InvokeFunction",
+         "Resource": "arn:aws:lambda:eu-west-1:*:function:renfrew-yoker-bridge-checker-alexa"
+       }
+     ]
+   }
+   ```
+3. On the user, **Security credentials** → **Create access key**, choose *Command Line
+   Interface (CLI)* as the use case, and keep the page open until the next step is done.
+4. Add the key to `credentials` and `config` under the name
+   `bridge-checker-verifier`, as
+   [step 5 of Running the scrape](#5-store-the-key-on-your-machine) does for its own
+   profile - `[bridge-checker-verifier]` in `credentials` and
+   `[profile bridge-checker-verifier]` in `config`, with `region = eu-west-1`.
+
+Then run the live check:
+
+```bash
+# Use the verifier's key, depending on your operating system:
+$env:AWS_PROFILE = "bridge-checker-verifier" # Windows (PowerShell)
+export AWS_PROFILE=bridge-checker-verifier # macOS/Linux
+
+# Only if you named the scrape's profile `bridge-checker` in step 5 of that section,
+# say so, as the scrape then has no default profile to run under:
+$env:SCRAPE_AWS_PROFILE = "bridge-checker" # Windows (PowerShell)
+export SCRAPE_AWS_PROFILE=bridge-checker # macOS/Linux
+
+# Run only the live checks:
+pytest -m live
+```
+
+**Check:** all the live tests pass. The scrape fetches the council page, so it needs
+your internet connection.
+
+### Troubleshooting
+
+When Alexa says there was a problem, start with the function's logs: in the Lambda
+console, **Monitor** → **View CloudWatch logs**, and open the newest log stream.
+
+| What you see                                                               | What it means                                                                                                                                                                                       |
+|----------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `There was a problem with the requested skill's response`                  | The function failed or ran out of time. Read its logs. If there are none, the trigger in step 5 is missing or has the wrong skill ID, or the ARN in step 6 is wrong.                                |
+| `Unable to import module 'bridge_skill.lambda_function'` in the logs       | The handler in step 3 is mistyped, or the zip was built from somewhere other than the repository root.                                                                                              |
+| `ZoneInfoNotFoundError` in the logs                                        | The zip has no `tzdata`. Build it again with `.venv` activated, as in step 1.                                                                                                                       |
+| `Sorry, I can't get the Renfrew-Yoker bridge closures right now.`          | The function can't read the cache. The log says why: `AccessDeniedException` means the policy in step 4 is missing or names another region, `ParameterNotFound` means nothing has been scraped yet. |
+| `I haven't been able to check Renfrewshire Council's website ... recently` | The cache is more than an hour old, so nothing is scraping. Check **Last modified date** on the parameter, and the Pi's logs as in [Viewing the logs](#viewing-the-logs).                           |
+| The console test works but the Echo can't find the skill                   | The skill isn't enabled (step 8), the Echo is on another Amazon account, or its language isn't *English (UK)* - check under **Devices** → the Echo → **Settings** → **Language** in the Alexa app.  |
+| Alexa doesn't recognise "Yoker"                                            | Use a routine as in step 9, so you never say it.                                                                                                                                                    |
+
+### What it costs
+
+Nothing at this scale. A Lambda function's first million requests a month are free,
+standard Parameter Store parameters cost nothing, and an Alexa developer account is
+free. The function's logs are the only thing that grows, and by very little. To keep
+them from growing at all, in **CloudWatch** → **Log groups**, open
+`/aws/lambda/renfrew-yoker-bridge-checker-alexa`, then **Actions** → **Edit retention
+setting** and choose *1 week*. The spending alert from
+[Running the scrape](#1-create-an-aws-account) covers the rest.
 
 ---
 

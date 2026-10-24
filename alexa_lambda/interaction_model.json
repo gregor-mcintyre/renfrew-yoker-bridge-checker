@@ -1,0 +1,47 @@
+{
+  "interactionModel": {
+    "languageModel": {
+      "invocationName": "renfrew yoker bridge",
+      "intents": [
+        {
+          "name": "AMAZON.CancelIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.HelpIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.StopIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.NavigateHomeIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.FallbackIntent",
+          "samples": []
+        },
+        {
+          "name": "GetBridgeClosuresIntent",
+          "slots": [],
+          "samples": [
+            "bridge closures",
+            "bridge times",
+            "is the bridge closed",
+            "is it closed",
+            "is it open",
+            "when is it closed",
+            "when does it close",
+            "is the bridge open",
+            "when is the bridge closed",
+            "closures",
+            "status"
+          ]
+        }
+      ],
+      "types": []
+    }
+  }
+}

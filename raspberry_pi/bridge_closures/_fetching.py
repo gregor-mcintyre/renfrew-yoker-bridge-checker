@@ -58,7 +58,7 @@ def fetch_webpage_text(url: str = _WEBPAGE_URL) -> str:
         WebpageUnavailableError: If the webpage cannot be reached.
     """
     try:
-        # Passes the Cloudflare check on the council website - see README.md
+        # Passes the Cloudflare check on the council website - see `README.md`
         response = requests.get(
             url,
             impersonate="chrome",
