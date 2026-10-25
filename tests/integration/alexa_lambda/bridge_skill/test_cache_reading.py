@@ -3,7 +3,7 @@
 from datetime import UTC, date, datetime
 from unittest.mock import patch
 
-from bridge_closure import LONDON_TZ, BridgeClosure
+from bridge_closure import LONDON_TZ, BridgeClosure, ClosedTo
 from bridge_skill._cache_reading import read_cached_bridge_closures
 from closure_cache import CachedBridgeClosures, serialize_bridge_closures_to_json
 from tests import patch_targets
@@ -13,6 +13,7 @@ from tests.integration.alexa_lambda.bridge_skill._helpers import stub_cache_payl
 _UTC_CLOSURE = BridgeClosure(
     start=datetime(2026, 6, 30, 23, 30, tzinfo=UTC),
     end=datetime(2026, 7, 1, 0, 30, tzinfo=UTC),
+    closed_to=ClosedTo.EVERYONE,
 )
 
 

@@ -16,6 +16,20 @@ Page layout:
     - A date with no closures shows either `"No Closures Currently Planned"` or
       `"No closures currently planned"`. There is no time range, so it yields nothing.
 
+Closure notice:
+
+    - A `"will be closed to"` notice says who every closure after it applies to, e.g.
+      `"will be closed to both road and pedestrian traffic"` or
+      `"will be closed to pedestrian & road traffic"`. Each notice replaces the one
+      before it, and a closure before any notice applies to everyone.
+    - A notice naming vehicles or road traffic, but not pedestrians, applies to vehicles
+      only. One naming pedestrians, but not vehicles or road traffic, applies to
+      pedestrians only.
+    - Cyclists are sometimes named too, and are ignored, as they can use the path or the
+      road, whichever is open.
+    - The page title says the bridge `"is closed to"` vehicles, pedestrians, and
+      cyclists. It has no `"will be"`, so is not a notice.
+
 Date heading:
 
     - The ordinal suffix on the day is sometimes present, e.g.
@@ -47,7 +61,7 @@ import calendar
 import re
 from datetime import date, datetime, time, timedelta
 
-from bridge_closure import LONDON_TZ, BridgeClosure
+from bridge_closure import LONDON_TZ, BridgeClosure, ClosedTo
 
 _MONTH_NUMBER_BY_NAME = {
     name: number for number, name in enumerate(calendar.month_name) if number
@@ -79,8 +93,21 @@ _TIME_RANGE = (
     rf"(?:\s+to\s+|\s*[-–]\s*)(?P<end_time>{_TIME}){_DAY_NOTE}"
 )
 
-_DATE_HEADING_OR_TIME_RANGE_PATTERN = re.compile(
-    rf"(?P<date_heading>{_DATE_HEADING})|{_TIME_RANGE}",
+# Matches a word in a closure notice that names traffic, or joins two that do.
+_TRAFFIC_WORD = (
+    r"(?:(?:both|road|vehicular|vehicles?|pedestrians?|cyclists?|and)\b|[&,])"
+)
+
+# Matches a closure notice such as `"will be closed to both road and pedestrian
+# traffic"`, capturing who the bridge is closed to. The capture holds only words that
+# name traffic, so it stops before anything else on the same line.
+_CLOSURE_NOTICE = rf"will\s+be\s+closed\s+to\s+(?P<closed_to>(?:{_TRAFFIC_WORD}\s*)+)"
+
+# Words in a closure notice that mean the bridge is closed to vehicles
+_VEHICLE_WORDS = ("road", "vehicle", "vehicular")
+
+_CLOSURE_LISTING_PATTERN = re.compile(
+    rf"(?P<date_heading>{_DATE_HEADING})|{_CLOSURE_NOTICE}|{_TIME_RANGE}",
 )
 
 
@@ -88,7 +115,7 @@ def _build_date_from_match(match: re.Match[str]) -> date:
     """Builds a `date` from the day, month, and year groups of `match`.
 
     Args:
-        match: A `_DATE_HEADING_OR_TIME_RANGE_PATTERN` match against a date heading.
+        match: A `_CLOSURE_LISTING_PATTERN` match against a date heading.
 
     Returns:
         The date represented by the day, month, and year groups of `match`.
@@ -98,6 +125,31 @@ def _build_date_from_match(match: re.Match[str]) -> date:
         _MONTH_NUMBER_BY_NAME[match["month"]],
         int(match["day"]),
     )
+
+
+def _resolve_closed_to(traffic: str) -> ClosedTo:
+    """Resolves who a closure notice says the bridge is closed to.
+
+    Args:
+        traffic: The words in the notice that name traffic, e.g.
+            `"both road and pedestrian "`.
+
+    Returns:
+        `ClosedTo.VEHICLES` when `traffic` names vehicles or road traffic but not
+        pedestrians, `ClosedTo.PEDESTRIANS` when it names pedestrians but not vehicles
+        or road traffic, otherwise `ClosedTo.EVERYONE`. Cyclists are ignored, as they
+        can use the path or the road, whichever is open.
+    """
+    closed_to_vehicles = any(word in traffic for word in _VEHICLE_WORDS)
+    closed_to_pedestrians = "pedestrian" in traffic
+
+    if closed_to_vehicles and not closed_to_pedestrians:
+        return ClosedTo.VEHICLES
+
+    if closed_to_pedestrians and not closed_to_vehicles:
+        return ClosedTo.PEDESTRIANS
+
+    return ClosedTo.EVERYONE
 
 
 def _parse_time(raw: str) -> time:
@@ -146,12 +198,14 @@ def _build_bridge_closure_with_london_timezone(
     *,
     start: datetime,
     end: datetime,
+    closed_to: ClosedTo,
 ) -> BridgeClosure:
     """Builds a `BridgeClosure` with the timezone of both times set to `Europe/London`.
 
     Args:
         start: The date and time the bridge is closed from.
         end: The date and time the bridge reopens.
+        closed_to: Who the bridge is closed to.
 
     Returns:
         A `BridgeClosure` where the timezone of both times is set to `Europe/London`.
@@ -159,19 +213,26 @@ def _build_bridge_closure_with_london_timezone(
     return BridgeClosure(
         start=start.replace(tzinfo=LONDON_TZ),
         end=end.replace(tzinfo=LONDON_TZ),
+        closed_to=closed_to,
     )
 
 
-def _build_closure_from_match(start_date: date, match: re.Match[str]) -> BridgeClosure:
+def _build_closure_from_match(
+    start_date: date,
+    match: re.Match[str],
+    *,
+    closed_to: ClosedTo,
+) -> BridgeClosure:
     """Builds a `BridgeClosure` from `start_date` and a time range match.
 
     Args:
         start_date: The date of the heading `match` was found under.
-        match: A `_DATE_HEADING_OR_TIME_RANGE_PATTERN` match against a time range.
+        match: A `_CLOSURE_LISTING_PATTERN` match against a time range.
+        closed_to: Who the closure notice above `match` says the bridge is closed to.
 
     Returns:
         `_build_bridge_closure_with_london_timezone` for `start_date`, the end date
-        resolved from `match`, and the start and end times from `match`.
+        resolved from `match`, the start and end times from `match`, and `closed_to`.
     """
     start_time = _parse_time(match["start_time"])
     end_time = _parse_time(match["end_time"])
@@ -184,6 +245,7 @@ def _build_closure_from_match(start_date: date, match: re.Match[str]) -> BridgeC
     return _build_bridge_closure_with_london_timezone(
         start=datetime.combine(start_date, start_time),
         end=datetime.combine(end_date, end_time),
+        closed_to=closed_to,
     )
 
 
@@ -192,7 +254,9 @@ def parse_bridge_closures(webpage_text: str) -> list[BridgeClosure]:
 
     The webpage is read in order: each date heading puts a new date in scope, and every
     time range after it is a closure on that date. A time range found before the first
-    date heading has no date, so is ignored.
+    date heading has no date, so is ignored. Likewise, each closure notice says who
+    every closure after it applies to, even one under a later date heading. A closure
+    before any notice applies to everyone.
 
     The webpage lists each closure twice, so a closure already found is skipped.
 
@@ -201,17 +265,21 @@ def parse_bridge_closures(webpage_text: str) -> list[BridgeClosure]:
 
     Returns:
         `_build_closure_from_match` for every distinct time range found under a date
-        heading.
+        heading, with who the bridge is closed to resolved by `_resolve_closed_to`.
     """
     closures: list[BridgeClosure] = []
     start_date: date | None = None
+    closed_to = ClosedTo.EVERYONE
 
-    for match in _DATE_HEADING_OR_TIME_RANGE_PATTERN.finditer(webpage_text):
+    for match in _CLOSURE_LISTING_PATTERN.finditer(webpage_text):
         if match["date_heading"]:
             start_date = _build_date_from_match(match)
 
+        elif match["closed_to"]:
+            closed_to = _resolve_closed_to(match["closed_to"])
+
         elif start_date is not None:
-            closure = _build_closure_from_match(start_date, match)
+            closure = _build_closure_from_match(start_date, match, closed_to=closed_to)
 
             if closure not in closures:
                 closures.append(closure)

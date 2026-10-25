@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import TypedDict
 
-from bridge_closure import LONDON_TZ, BridgeClosure
+from bridge_closure import LONDON_TZ, BridgeClosure, ClosedTo
 
 # The path of the AWS Systems Manager Parameter Store parameter the closures cache is
 # written to and read from
@@ -31,10 +31,12 @@ class _SerializedBridgeClosure(TypedDict):
     Attributes:
         start: The date and time the closure starts, in ISO 8601 format.
         end: The date and time the closure ends, in ISO 8601 format.
+        closed_to: Who the bridge is closed to, as a `ClosedTo` value.
     """
 
     start: str
     end: str
+    closed_to: str
 
 
 class _SerializedBridgeClosures(TypedDict):
@@ -63,13 +65,17 @@ def serialize_bridge_closures_to_json(
             website.
 
     Returns:
-        A JSON object containing `fetched_at` and the `start` and `end` of each
-        closure, each converted with `datetime.isoformat()`.
+        A JSON object containing `fetched_at` and the `start`, `end`, and `closed_to`
+        of each closure, the times each converted with `datetime.isoformat()`.
     """
     payload: _SerializedBridgeClosures = {
         "fetched_at": fetched_at.isoformat(),
         "closures": [
-            {"start": closure.start.isoformat(), "end": closure.end.isoformat()}
+            {
+                "start": closure.start.isoformat(),
+                "end": closure.end.isoformat(),
+                "closed_to": closure.closed_to,
+            }
             for closure in closures
         ],
     }
@@ -101,8 +107,8 @@ def deserialize_bridge_closures_from_json(payload: str) -> CachedBridgeClosures:
         payload: The JSON object to deserialize.
 
     Returns:
-        The closures and the fetch time held in `payload`, each in the `Europe/London`
-        timezone.
+        The closures and the fetch time held in `payload`, each time in the
+        `Europe/London` timezone.
     """
     data: _SerializedBridgeClosures = json.loads(payload)
 
@@ -111,6 +117,7 @@ def deserialize_bridge_closures_from_json(payload: str) -> CachedBridgeClosures:
             BridgeClosure(
                 start=_parse_london_datetime(closure["start"]),
                 end=_parse_london_datetime(closure["end"]),
+                closed_to=ClosedTo(closure["closed_to"]),
             )
             for closure in data["closures"]
         ],

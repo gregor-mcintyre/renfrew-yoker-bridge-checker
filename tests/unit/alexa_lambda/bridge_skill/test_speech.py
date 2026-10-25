@@ -1,7 +1,7 @@
 from datetime import date, datetime, timedelta
 from unittest.mock import Mock, call, patch
 
-from bridge_closure import LONDON_TZ, BridgeClosure
+from bridge_closure import LONDON_TZ, BridgeClosure, ClosedTo
 from bridge_skill._speech import (
     _BRIDGE_NAME,
     _NO_UPCOMING_SPEECH,
@@ -40,9 +40,13 @@ def _closure_starting_at(start: datetime) -> BridgeClosure:
         start: The date and time the closure starts.
 
     Returns:
-        A closure from `start` to one hour later.
+        A closure from `start` to one hour later, closed to everyone.
     """
-    return BridgeClosure(start=start, end=start + timedelta(hours=1))
+    return BridgeClosure(
+        start=start,
+        end=start + timedelta(hours=1),
+        closed_to=ClosedTo.EVERYONE,
+    )
 
 
 def _stub_time_text(mock_format_time: Mock, closure: BridgeClosure) -> None:
@@ -224,7 +228,11 @@ class TestDescribeStatus:
 class TestFormatWindow:
     def test_closure_ending_the_next_day_says_the_next_day(self, mock_format_time):
         start = datetime(2026, 9, 29, 22, tzinfo=LONDON_TZ)
-        closure = BridgeClosure(start=start, end=start + timedelta(hours=3))
+        closure = BridgeClosure(
+            start=start,
+            end=start + timedelta(hours=3),
+            closed_to=ClosedTo.EVERYONE,
+        )
 
         _stub_time_text(mock_format_time, closure)
 

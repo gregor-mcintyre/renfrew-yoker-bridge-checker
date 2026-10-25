@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from bridge_closure import LONDON_TZ, BridgeClosure
+from bridge_closure import LONDON_TZ, BridgeClosure, ClosedTo
 from bridge_skill._speech import (
     _BRIDGE_NAME,
     _NO_UPCOMING_SPEECH,
@@ -24,6 +24,7 @@ class TestDescribeBridgeClosures:
                 BridgeClosure(
                     start=datetime(2026, 9, 29, 11, tzinfo=LONDON_TZ),
                     end=datetime(2026, 9, 29, 12, 30, tzinfo=LONDON_TZ),
+                    closed_to=ClosedTo.EVERYONE,
                 ),
             ],
             fetched_at=_NOW - 2 * _STALE_AFTER,
@@ -39,6 +40,7 @@ class TestDescribeBridgeClosures:
                 BridgeClosure(
                     start=datetime(2026, 9, 29, 9, tzinfo=LONDON_TZ),
                     end=datetime(2026, 9, 29, 10, tzinfo=LONDON_TZ),
+                    closed_to=ClosedTo.EVERYONE,
                 ),
             ],
             fetched_at=_NOW,
@@ -54,6 +56,7 @@ class TestDescribeBridgeClosures:
                 BridgeClosure(
                     start=datetime(2026, 9, 29, 11, tzinfo=LONDON_TZ),
                     end=datetime(2026, 9, 29, 12, 30, tzinfo=LONDON_TZ),
+                    closed_to=ClosedTo.EVERYONE,
                 ),
             ],
             fetched_at=_NOW,
@@ -71,6 +74,7 @@ class TestDescribeBridgeClosures:
                 BridgeClosure(
                     start=datetime(2026, 9, 29, 11, tzinfo=LONDON_TZ),
                     end=datetime(2026, 9, 30, 1, tzinfo=LONDON_TZ),
+                    closed_to=ClosedTo.EVERYONE,
                 ),
             ],
             fetched_at=_NOW,
@@ -89,10 +93,12 @@ class TestDescribeBridgeClosures:
                 BridgeClosure(
                     start=datetime(2026, 9, 29, 11, tzinfo=LONDON_TZ),
                     end=datetime(2026, 9, 29, 12, 30, tzinfo=LONDON_TZ),
+                    closed_to=ClosedTo.EVERYONE,
                 ),
                 BridgeClosure(
                     start=datetime(2026, 9, 29, 15, tzinfo=LONDON_TZ),
                     end=datetime(2026, 9, 29, 16, tzinfo=LONDON_TZ),
+                    closed_to=ClosedTo.EVERYONE,
                 ),
             ],
             fetched_at=_NOW,
@@ -111,6 +117,7 @@ class TestDescribeBridgeClosures:
                 BridgeClosure(
                     start=datetime(2026, 9, 30, 23, tzinfo=LONDON_TZ),
                     end=datetime(2026, 10, 1, 1, tzinfo=LONDON_TZ),
+                    closed_to=ClosedTo.EVERYONE,
                 ),
             ],
             fetched_at=_NOW,
@@ -136,14 +143,17 @@ class TestDescribeBridgeClosures:
                 BridgeClosure(
                     start=datetime(2026, 9, 30, 9, tzinfo=LONDON_TZ),
                     end=datetime(2026, 9, 30, 10, tzinfo=LONDON_TZ),
+                    closed_to=ClosedTo.EVERYONE,
                 ),
                 BridgeClosure(
                     start=datetime(2026, 9, 30, 12, tzinfo=LONDON_TZ),
                     end=datetime(2026, 9, 30, 13, tzinfo=LONDON_TZ),
+                    closed_to=ClosedTo.EVERYONE,
                 ),
                 BridgeClosure(
                     start=datetime(2026, 9, 30, 15, tzinfo=LONDON_TZ),
                     end=datetime(2026, 9, 30, 16, tzinfo=LONDON_TZ),
+                    closed_to=ClosedTo.EVERYONE,
                 ),
             ],
             fetched_at=_NOW,
@@ -163,14 +173,17 @@ class TestDescribeBridgeClosures:
                 BridgeClosure(
                     start=datetime(2026, 9, 30, 14, tzinfo=LONDON_TZ),
                     end=datetime(2026, 9, 30, 15, tzinfo=LONDON_TZ),
+                    closed_to=ClosedTo.EVERYONE,
                 ),
                 BridgeClosure(
                     start=datetime(2026, 9, 30, 9, tzinfo=LONDON_TZ),
                     end=datetime(2026, 9, 30, 12, 30, tzinfo=LONDON_TZ),
+                    closed_to=ClosedTo.EVERYONE,
                 ),
                 BridgeClosure(
                     start=datetime(2026, 9, 29, 15, tzinfo=LONDON_TZ),
                     end=datetime(2026, 9, 29, 16, tzinfo=LONDON_TZ),
+                    closed_to=ClosedTo.EVERYONE,
                 ),
             ],
             fetched_at=_NOW,
