@@ -1,0 +1,39 @@
+{
+  "version": "1.0",
+  "session": {
+    "new": true,
+    "sessionId": "amzn1.echo-api.session.00000000-0000-0000-0000-000000000000",
+    "application": {
+      "applicationId": "amzn1.ask.skill.00000000-0000-0000-0000-000000000000"
+    },
+    "user": {
+      "userId": "amzn1.ask.account.EXAMPLE"
+    }
+  },
+  "context": {
+    "System": {
+      "application": {
+        "applicationId": "amzn1.ask.skill.00000000-0000-0000-0000-000000000000"
+      },
+      "user": {
+        "userId": "amzn1.ask.account.EXAMPLE"
+      },
+      "device": {
+        "deviceId": "amzn1.ask.device.EXAMPLE",
+        "supportedInterfaces": {}
+      },
+      "apiEndpoint": "https://api.eu.amazonalexa.com",
+      "apiAccessToken": "EXAMPLE-NOT-A-REAL-TOKEN"
+    }
+  },
+  "request": {
+    "type": "IntentRequest",
+    "requestId": "amzn1.echo-api.request.00000000-0000-0000-0000-000000000000",
+    "timestamp": "2026-09-29T12:00:00Z",
+    "locale": "en-GB",
+    "intent": {
+      "name": "GetBridgeClosuresIntent",
+      "confirmationStatus": "NONE"
+    }
+  }
+}

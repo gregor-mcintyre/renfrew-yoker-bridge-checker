@@ -15,6 +15,10 @@ The canonical test commands — `README.md` copies them, so change them here fir
 | One tier          | `pytest tests/unit`                          |
 | One file or test  | `pytest <path>` / `pytest -k <name>`         |
 | Coverage          | `pytest --cov`                               |
+| Live checks       | `pytest -m live`                             |
+
+Live checks are the tests marked `live`: they use the deployed AWS resources, so plain
+`pytest` leaves them out.
 
 ---
 
@@ -112,7 +116,10 @@ extra high-tier case is slower, more brittle, and duplicates cheaper coverage.
   only case where an outer file makes an inner one redundant. That can leave the top
   layer as the only file, but as a judgement, never the default.
 - **E2e is driven from outside** — the documented command, script or handler — never by
-  importing internals. A test that reaches inside is an integration test misnamed.
+  importing internals. A test that reaches inside is an integration test misnamed. That
+  includes their types, public or private: a test declares the shape of the data it
+  sends and reads in its own `TypedDict`s, so an import never lets the code and the
+  test drift together unnoticed.
 - **E2e keeps externals real where practical.** Where one genuinely isn't (a paid API,
   live hardware, a non-deterministic remote), stub the narrowest piece.
 
@@ -179,6 +186,12 @@ extra high-tier case is slower, more brittle, and duplicates cheaper coverage.
   stdlib call or a separately tested collaborator (`bound_input.isoformat()` rather than
   a hardcoded ISO string). When it is project-owned logic, hardcode the literal:
   deriving it the same way lets a defect pass on both sides.
+- A literal the code already names — a message, a limit, a parameter name — is
+  imported from that name in unit and integration tests, never retyped, so changing
+  it is one edit; build an expected value from the names it contains and restate only
+  the text no constant holds: `f"{_SERVICE_NAME} is down"`. That is not deriving the
+  value the code's way — the bullet above is about project-owned logic, not a named
+  literal. E2e tests never import internals, so they retype it; a rename fails them.
 
 ---
 
