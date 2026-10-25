@@ -21,6 +21,7 @@ _PARSING_MODULE = patch_targets.BRIDGE_CLOSURES_PACKAGE + "._parsing"
 _ROLLOVER_START_TIME = "11pm"
 _ROLLOVER_END_TIME = "1am"
 _IMPLICIT_ROLLOVER_TIME_RANGE = f"From {_ROLLOVER_START_TIME} to {_ROLLOVER_END_TIME}"
+_WEEKDAY_NOTED_TIME_RANGE = "6.00pm Saturday to 6.00am Sunday"
 
 _START_DATE = date(2026, 9, 15)
 
@@ -240,6 +241,7 @@ class TestParseBridgeClosures:
             pytest.param("From 8.00am to 9.00pm", id="dot-minutes"),
             pytest.param("From 11.10 am to 1.00pm", id="spaced-meridiem"),
             pytest.param("11.25pm (14th) to 12.30am (15th)", id="day-notes"),
+            pytest.param(_WEEKDAY_NOTED_TIME_RANGE, id="weekday-notes"),
             pytest.param("12:40pm - 1:10pm", id="hyphen-separator"),
             pytest.param("12:40pm – 1:10pm", id="en-dash-separator"),
         ],
@@ -269,16 +271,24 @@ class TestParseBridgeClosures:
 
         assert result == [mock_build_closure_from_match.return_value]
 
+    @pytest.mark.parametrize(
+        "first_time_range",
+        [
+            pytest.param(closures_webpage_text.TIME_RANGE, id="no-day-notes"),
+            pytest.param(_WEEKDAY_NOTED_TIME_RANGE, id="weekday-notes"),
+        ],
+    )
     def test_assigns_each_time_range_to_the_date_heading_above_it(
         self,
         mock_build_date_from_match,
         mock_build_closure_from_match,
+        first_time_range,
     ):
         first_date = Mock()
         second_date = Mock()
         webpage_text = (
             f"{closures_webpage_text.DATE_HEADING}"
-            f"\n{closures_webpage_text.TIME_RANGE}\n"
+            f"\n{first_time_range}\n"
             f"{'Wednesday 16th September 2026'}"
             f"\n{_IMPLICIT_ROLLOVER_TIME_RANGE}"
         )

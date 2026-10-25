@@ -37,9 +37,10 @@ Time range:
     - A date can have several time ranges, each of which is a separate closure.
     - A range whose end time is earlier than the start time runs past midnight, e.g.
       `"From 11pm to 1am"`, so ends on the next day.
-    - A range that runs past midnight sometimes names the day of each time in
-      parentheses, e.g. `"11.25pm (14th) to 12.30am (15th)"`. The days are ignored,
-      as the end time already shows the range runs past midnight.
+    - A range that runs past midnight sometimes names the day of each time, either in
+      parentheses, e.g. `"11.25pm (14th) to 12.30am (15th)"`, or as a weekday, e.g.
+      `"6.00pm Saturday to 6.00am Sunday"`. The days are ignored, as the end time
+      already shows the range runs past midnight.
 """
 
 import calendar
@@ -66,12 +67,13 @@ _DATE_HEADING = (
 # the meridiem.
 _TIME = r"\d{1,2}(?:[:.]\d{2})?\s*[ap]m"
 
-# Matches the optional day of a time in parentheses, such as `" (14th)"` or `" (15)"`.
-_DAY_NOTE = r"(?:\s*\(\d{1,2}(?:st|nd|rd|th)?\))?"
+# Matches the optional day of a time, either in parentheses, such as `" (14th)"` or
+# `" (15)"`, or as a weekday, such as `" Saturday"`. A weekday followed by a number
+# starts the next date heading, so is left for it.
+_DAY_NOTE = rf"(?:\s*\(\d{{1,2}}(?:st|nd|rd|th)?\)|\s+(?:{_DAY_NAMES})(?!\s+\d))?"
 
 # Matches a `"[From] X to Y"` or `"X - Y"` time range. The leading `"From"` is
-# optional, as is the day in parentheses after each time. The dash can be a hyphen or
-# an en dash.
+# optional, as is the day after each time. The dash can be a hyphen or an en dash.
 _TIME_RANGE = (
     rf"(?:From\s+)?(?P<start_time>{_TIME}){_DAY_NOTE}"
     rf"(?:\s+to\s+|\s*[-–]\s*)(?P<end_time>{_TIME}){_DAY_NOTE}"
