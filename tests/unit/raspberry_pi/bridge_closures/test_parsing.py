@@ -140,7 +140,7 @@ def test_build_closure_from_match_delegates_each_step_and_returns_the_built_clos
 @patch(f"{_PARSING_MODULE}._build_closure_from_match")
 @patch(f"{_PARSING_MODULE}._build_date_from_match")
 class TestParseBridgeClosures:
-    def test_returns_empty_list_when_no_date_heading_is_found(
+    def test_no_date_heading_returns_empty_list(
         self,
         mock_build_date_from_match,
         mock_build_closure_from_match,
@@ -173,7 +173,7 @@ class TestParseBridgeClosures:
             ),
         ],
     )
-    def test_returns_empty_list_when_a_date_heading_has_no_time_range(
+    def test_date_heading_without_time_range_returns_empty_list(
         self,
         mock_build_date_from_match,
         mock_build_closure_from_match,
@@ -240,6 +240,8 @@ class TestParseBridgeClosures:
             pytest.param("From 8.00am to 9.00pm", id="dot-minutes"),
             pytest.param("From 11.10 am to 1.00pm", id="spaced-meridiem"),
             pytest.param("11.25pm (14th) to 12.30am (15th)", id="day-notes"),
+            pytest.param("12:40pm - 1:10pm", id="hyphen-separator"),
+            pytest.param("12:40pm – 1:10pm", id="en-dash-separator"),
         ],
     )
     def test_known_time_range_format_returns_the_closure(

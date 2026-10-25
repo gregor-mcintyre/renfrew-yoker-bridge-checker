@@ -32,6 +32,8 @@ Time range:
 
     - A time range is sometimes prefixed with `"From"`, e.g. `"From 5pm to 6:30pm"`, and
       sometimes not, e.g. `"2.10pm to 2.25pm"`.
+    - The times are sometimes separated by a hyphen or an en dash instead of `"to"`,
+      e.g. `"12:40pm - 1:10pm"`.
     - A date can have several time ranges, each of which is a separate closure.
     - A range whose end time is earlier than the start time runs past midnight, e.g.
       `"From 11pm to 1am"`, so ends on the next day.
@@ -67,11 +69,12 @@ _TIME = r"\d{1,2}(?:[:.]\d{2})?\s*[ap]m"
 # Matches the optional day of a time in parentheses, such as `" (14th)"` or `" (15)"`.
 _DAY_NOTE = r"(?:\s*\(\d{1,2}(?:st|nd|rd|th)?\))?"
 
-# Matches a `"[From] X to Y"` time range. The leading `"From"` is optional, as is the
-# day in parentheses after each time.
+# Matches a `"[From] X to Y"` or `"X - Y"` time range. The leading `"From"` is
+# optional, as is the day in parentheses after each time. The dash can be a hyphen or
+# an en dash.
 _TIME_RANGE = (
     rf"(?:From\s+)?(?P<start_time>{_TIME}){_DAY_NOTE}"
-    rf"\s+to\s+(?P<end_time>{_TIME}){_DAY_NOTE}"
+    rf"(?:\s+to\s+|\s*[-–]\s*)(?P<end_time>{_TIME}){_DAY_NOTE}"
 )
 
 _DATE_HEADING_OR_TIME_RANGE_PATTERN = re.compile(
