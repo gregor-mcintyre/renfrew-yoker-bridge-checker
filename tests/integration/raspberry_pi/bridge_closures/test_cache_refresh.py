@@ -75,6 +75,7 @@ class TestRefreshClosureCache:
                 {
                     "start": BRIDGE_CLOSURE.start.isoformat(),
                     "end": BRIDGE_CLOSURE.end.isoformat(),
+                    "closed_to": BRIDGE_CLOSURE.closed_to,
                 },
             ],
         }

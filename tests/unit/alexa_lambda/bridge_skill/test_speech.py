@@ -1,9 +1,12 @@
 from datetime import date, datetime, timedelta
 from unittest.mock import Mock, call, patch
 
-from bridge_closure import LONDON_TZ, BridgeClosure
+import pytest
+
+from bridge_closure import LONDON_TZ, BridgeClosure, ClosedTo
 from bridge_skill._speech import (
     _BRIDGE_NAME,
+    _CLOSED_TO_WORDING,
     _NO_UPCOMING_SPEECH,
     _STALE_AFTER,
     _STALE_SPEECH,
@@ -33,16 +36,25 @@ _STATUS_TEXT = "status text"
 _DAY_TEXT = "day text"
 
 
-def _closure_starting_at(start: datetime) -> BridgeClosure:
+def _closure_starting_at(
+    start: datetime,
+    *,
+    closed_to: ClosedTo = ClosedTo.EVERYONE,
+) -> BridgeClosure:
     """Builds a closure that lasts one hour.
 
     Args:
         start: The date and time the closure starts.
+        closed_to: Who the bridge is closed to.
 
     Returns:
-        A closure from `start` to one hour later.
+        A closure from `start` to one hour later, closed to `closed_to`.
     """
-    return BridgeClosure(start=start, end=start + timedelta(hours=1))
+    return BridgeClosure(
+        start=start,
+        end=start + timedelta(hours=1),
+        closed_to=closed_to,
+    )
 
 
 def _stub_time_text(mock_format_time: Mock, closure: BridgeClosure) -> None:
@@ -208,6 +220,25 @@ class TestDescribeStatus:
 
         mock_format_reopening.assert_called_once_with(in_progress.end, now=_NOW)
 
+    @pytest.mark.parametrize("closed_to", [ClosedTo.VEHICLES, ClosedTo.PEDESTRIANS])
+    def test_closure_for_some_traffic_says_who_the_bridge_is_closed_to(
+        self,
+        mock_format_reopening,
+        closed_to,
+    ):
+        closure = _closure_starting_at(
+            _NOW - timedelta(minutes=30),
+            closed_to=closed_to,
+        )
+
+        result = _describe_status([closure], now=_NOW)
+
+        expected = (
+            f"The {_BRIDGE_NAME} is closed{_CLOSED_TO_WORDING[closed_to]} now, until "
+            f"{mock_format_reopening.return_value}."
+        )
+        assert result == expected
+
     def test_says_the_bridge_is_closed_until_it_reopens(self, mock_format_reopening):
         closure = _closure_starting_at(_NOW - timedelta(minutes=30))
 
@@ -222,22 +253,46 @@ class TestDescribeStatus:
 
 @patch(_FORMAT_TIME)
 class TestFormatWindow:
-    def test_closure_ending_the_next_day_says_the_next_day(self, mock_format_time):
-        start = datetime(2026, 9, 29, 22, tzinfo=LONDON_TZ)
-        closure = BridgeClosure(start=start, end=start + timedelta(hours=3))
+    def test_closure_starting_tomorrow_and_ending_the_day_after_says_the_next_day(
+        self,
+        mock_format_time,
+    ):
+        start = datetime(2026, 9, 30, 22, tzinfo=LONDON_TZ)
+        closure = BridgeClosure(
+            start=start,
+            end=start + timedelta(hours=3),
+            closed_to=ClosedTo.EVERYONE,
+        )
 
         _stub_time_text(mock_format_time, closure)
 
-        result = _format_window(closure)
+        result = _format_window(closure, today=_NOW.date())
 
         assert result == f"from {_START_TEXT} until {_END_TEXT} the next day"
+
+    def test_closure_starting_today_and_ending_tomorrow_says_tomorrow(
+        self,
+        mock_format_time,
+    ):
+        start = datetime(2026, 9, 29, 22, tzinfo=LONDON_TZ)
+        closure = BridgeClosure(
+            start=start,
+            end=start + timedelta(hours=3),
+            closed_to=ClosedTo.EVERYONE,
+        )
+
+        _stub_time_text(mock_format_time, closure)
+
+        result = _format_window(closure, today=_NOW.date())
+
+        assert result == f"from {_START_TEXT} until {_END_TEXT} tomorrow"
 
     def test_formats_the_start_and_end_times(self, mock_format_time):
         closure = _closure_starting_at(_NOW)
 
         _stub_time_text(mock_format_time, closure)
 
-        _format_window(closure)
+        _format_window(closure, today=_NOW.date())
 
         assert mock_format_time.call_args_list == [
             call(closure.start),
@@ -249,7 +304,7 @@ class TestFormatWindow:
 
         _stub_time_text(mock_format_time, closure)
 
-        result = _format_window(closure)
+        result = _format_window(closure, today=_NOW.date())
 
         assert result == f"from {_START_TEXT} to {_END_TEXT}"
 
@@ -299,7 +354,10 @@ class TestDescribeDay:
 
         _describe_day([first, second], today=_NOW.date())
 
-        assert mock_format_window.call_args_list == [call(first), call(second)]
+        assert mock_format_window.call_args_list == [
+            call(first, today=_NOW.date()),
+            call(second, today=_NOW.date()),
+        ]
 
     def test_joins_the_windows_of_every_closure(
         self,
@@ -317,6 +375,24 @@ class TestDescribeDay:
         _describe_day(closures, today=_NOW.date())
 
         mock_join_windows.assert_called_once_with(["first window", "second window"])
+
+    @pytest.mark.parametrize("closed_to", [ClosedTo.VEHICLES, ClosedTo.PEDESTRIANS])
+    def test_closures_for_some_traffic_say_who_the_bridge_closes_to(
+        self,
+        mock_format_day,
+        mock_format_window,
+        mock_join_windows,
+        closed_to,
+    ):
+        closure = _closure_starting_at(_NOW, closed_to=closed_to)
+
+        result = _describe_day([closure], today=_NOW.date())
+
+        expected = (
+            f"It closes{_CLOSED_TO_WORDING[closed_to]} {mock_format_day.return_value} "
+            f"{mock_join_windows.return_value}."
+        )
+        assert result == expected
 
     def test_describes_the_day_and_the_joined_windows(
         self,
@@ -467,6 +543,27 @@ class TestDescribeBridgeClosures:
         describe_bridge_closures(cached, now=_NOW)
 
         mock_describe_day.assert_called_once_with([first, second], today=_NOW.date())
+
+    def test_closures_on_one_day_for_different_traffic_are_described_separately(
+        self,
+        mock_describe_status,
+        mock_describe_day,
+    ):
+        first = _closure_starting_at(_NOW + timedelta(hours=1))
+        second = _closure_starting_at(
+            _NOW + timedelta(hours=2),
+            closed_to=ClosedTo.VEHICLES,
+        )
+        third = _closure_starting_at(_NOW + timedelta(hours=3))
+        cached = CachedBridgeClosures(closures=[first, second, third], fetched_at=_NOW)
+
+        describe_bridge_closures(cached, now=_NOW)
+
+        assert mock_describe_day.call_args_list == [
+            call([first], today=_NOW.date()),
+            call([second], today=_NOW.date()),
+            call([third], today=_NOW.date()),
+        ]
 
     def test_sorts_the_closures_of_a_day_by_start(
         self,

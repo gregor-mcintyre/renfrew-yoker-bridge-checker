@@ -3,7 +3,7 @@
 from datetime import date, datetime, timedelta
 from itertools import groupby
 
-from bridge_closure import BridgeClosure
+from bridge_closure import BridgeClosure, ClosedTo
 from closure_cache import CachedBridgeClosures
 
 # How old the cache can be before it is no longer trusted
@@ -16,6 +16,14 @@ _STALE_SPEECH = (
     f"{_BRIDGE_NAME} closures recently, so please check it directly."
 )
 _NO_UPCOMING_SPEECH = "No upcoming closures are listed."
+
+# Words that follow `"closed"` or `"closes"` to say who a closure applies to. A closure
+# that applies to everyone needs none.
+_CLOSED_TO_WORDING = {
+    ClosedTo.EVERYONE: "",
+    ClosedTo.VEHICLES: " to vehicles",
+    ClosedTo.PEDESTRIANS: " to pedestrians",
+}
 
 
 def _format_time(value: datetime) -> str:
@@ -83,7 +91,8 @@ def _describe_status(closures: list[BridgeClosure], *, now: datetime) -> str:
 
     Returns:
         A sentence saying the bridge is open, or closed until the time that
-        `_format_reopening` gives.
+        `_format_reopening` gives. A closure that applies to vehicles or pedestrians
+        only says so, as `_CLOSED_TO_WORDING` words it.
     """
     current_closure = next(
         (closure for closure in closures if closure.start <= now < closure.end),
@@ -93,26 +102,34 @@ def _describe_status(closures: list[BridgeClosure], *, now: datetime) -> str:
     if current_closure is None:
         return f"The {_BRIDGE_NAME} is open now."
 
+    closed_to = _CLOSED_TO_WORDING[current_closure.closed_to]
     reopening = _format_reopening(current_closure.end, now=now)
 
-    return f"The {_BRIDGE_NAME} is closed now, until {reopening}."
+    return f"The {_BRIDGE_NAME} is closed{closed_to} now, until {reopening}."
 
 
-def _format_window(closure: BridgeClosure) -> str:
+def _format_window(closure: BridgeClosure, *, today: date) -> str:
     """Renders the times a closure runs from and to.
 
     Args:
-        closure: The closure to render.
+        closure: The closure to render, which starts today or tomorrow.
+        today: The current date.
 
     Returns:
-        A phrase such as `"from 8:55am to 10am"`. A closure that ends on the next day
-        reads `"from 11pm until 1am the next day"`.
+        A phrase such as `"from 8:55am to 10am"`. A closure that ends on the day after
+        it starts reads `"from 11pm until 1am tomorrow"` when it starts today, or
+        `"from 11pm until 1am the next day"` when it starts tomorrow, as it then ends
+        the day after tomorrow.
     """
     start = _format_time(closure.start)
     end = _format_time(closure.end)
+    end_date = closure.end.date()
 
-    if closure.end.date() == closure.start.date():
+    if end_date == closure.start.date():
         return f"from {start} to {end}"
+
+    if end_date == today + timedelta(days=1):
+        return f"from {start} until {end} tomorrow"
 
     return f"from {start} until {end} the next day"
 
@@ -137,21 +154,24 @@ def _join_windows(windows: list[str]) -> str:
 
 
 def _describe_day(closures: list[BridgeClosure], *, today: date) -> str:
-    """Describes every closure that starts on one day in a single sentence.
+    """Describes closures on one day that close the bridge to the same traffic.
 
     Args:
-        closures: The closures to describe. All of them start on the same date.
+        closures: The closures to describe. All of them start on the same date and
+            close the bridge to the same traffic.
         today: The current date.
 
     Returns:
-        A sentence naming the day as `_format_day` words it, followed by the closures
-        as `_join_windows` joins them, such as `"It closes tomorrow from 9am to 12:30pm,
-        and again from 2pm to 3pm."`.
+        A sentence naming who each closure applies to as `_CLOSED_TO_WORDING` words it,
+        the day as `_format_day` words it, and the closures as `_join_windows` joins
+        them, such as `"It closes to vehicles tomorrow from 9am to 12:30pm, and again
+        from 2pm to 3pm."`.
     """
+    closed_to = _CLOSED_TO_WORDING[closures[0].closed_to]
     day = _format_day(closures[0].start.date(), today=today)
-    windows = [_format_window(closure) for closure in closures]
+    windows = [_format_window(closure, today=today) for closure in closures]
 
-    return f"It closes {day} {_join_windows(windows)}."
+    return f"It closes{closed_to} {day} {_join_windows(windows)}."
 
 
 def describe_bridge_closures(cached: CachedBridgeClosures, *, now: datetime) -> str:
@@ -162,12 +182,12 @@ def describe_bridge_closures(cached: CachedBridgeClosures, *, now: datetime) -> 
         now: The current date and time.
 
     Returns:
-        A request to check the council website instead, if `cached` was fetched too
-        long before `now` to be trusted. Otherwise the sentence `_describe_status`
-        gives, followed by the sentence `_describe_day` gives for each of today and
-        tomorrow with a closure still to come, in date order, or by
-        `_NO_UPCOMING_SPEECH` if there is none. Closures that have ended, or that start
-        after tomorrow, are not mentioned.
+        A request to check the council website instead, if `cached` was fetched too long
+        before `now` to be trusted. Otherwise the sentence `_describe_status` gives,
+        followed by the sentence `_describe_day` gives for each run of closures still to
+        come today or tomorrow that start on the same day and close the bridge to the
+        same traffic, in start order, or by `_NO_UPCOMING_SPEECH` if there is none.
+        Closures that have ended, or that start after tomorrow, are not mentioned.
     """
     if now - cached.fetched_at > _STALE_AFTER:
         return _STALE_SPEECH
@@ -190,7 +210,7 @@ def describe_bridge_closures(cached: CachedBridgeClosures, *, now: datetime) -> 
         _describe_day(list(day_closures), today=now.date())
         for _, day_closures in groupby(
             upcoming_closures,
-            key=lambda closure: closure.start.date(),
+            key=lambda closure: (closure.start.date(), closure.closed_to),
         )
     ]
 

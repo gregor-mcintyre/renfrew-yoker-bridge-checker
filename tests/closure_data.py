@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from bridge_closure import LONDON_TZ, BridgeClosure
+from bridge_closure import LONDON_TZ, BridgeClosure, ClosedTo
 
 FETCHED_AT = datetime(2026, 9, 15, 12, tzinfo=LONDON_TZ)
 
@@ -10,4 +10,5 @@ FETCHED_AT = datetime(2026, 9, 15, 12, tzinfo=LONDON_TZ)
 BRIDGE_CLOSURE = BridgeClosure(
     start=datetime(2026, 9, 15, 9, tzinfo=LONDON_TZ),
     end=datetime(2026, 9, 15, 12, 30, tzinfo=LONDON_TZ),
+    closed_to=ClosedTo.EVERYONE,
 )

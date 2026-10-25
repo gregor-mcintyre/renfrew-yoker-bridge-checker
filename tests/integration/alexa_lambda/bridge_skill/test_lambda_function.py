@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch
 
 from botocore.exceptions import ClientError
 
-from bridge_closure import BridgeClosure
+from bridge_closure import BridgeClosure, ClosedTo
 from bridge_skill._speech import _BRIDGE_NAME, _NO_UPCOMING_SPEECH, _STALE_SPEECH
 from bridge_skill.lambda_function import (
     _RESPONSE_VERSION,
@@ -96,6 +96,7 @@ class TestLambdaHandler:
         utc_closure = BridgeClosure(
             start=datetime(2026, 9, 15, 23, 30, tzinfo=UTC),
             end=datetime(2026, 9, 16, 0, 30, tzinfo=UTC),
+            closed_to=ClosedTo.EVERYONE,
         )
         payload = serialize_bridge_closures_to_json(
             [utc_closure],
@@ -133,6 +134,7 @@ class TestLambdaHandler:
         tomorrow_closure = BridgeClosure(
             start=BRIDGE_CLOSURE.start + timedelta(days=1),
             end=BRIDGE_CLOSURE.end + timedelta(days=1),
+            closed_to=ClosedTo.EVERYONE,
         )
         payload = serialize_bridge_closures_to_json(
             [tomorrow_closure],

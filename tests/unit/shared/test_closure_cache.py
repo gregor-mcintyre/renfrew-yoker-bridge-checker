@@ -2,7 +2,7 @@ import json
 from datetime import UTC, date
 from unittest.mock import Mock, patch
 
-from bridge_closure import LONDON_TZ, BridgeClosure
+from bridge_closure import LONDON_TZ, BridgeClosure, ClosedTo
 from closure_cache import (
     _parse_london_datetime,
     deserialize_bridge_closures_from_json,
@@ -22,7 +22,7 @@ class TestSerializeBridgeClosuresToJSON:
 
         assert json.loads(result)["closures"] == []
 
-    def test_serializes_each_closure_start_and_end_in_iso_format(self):
+    def test_serializes_each_closure_with_its_times_in_iso_format(self):
         result = serialize_bridge_closures_to_json(
             [BRIDGE_CLOSURE],
             fetched_at=FETCHED_AT,
@@ -32,6 +32,7 @@ class TestSerializeBridgeClosuresToJSON:
             {
                 "start": BRIDGE_CLOSURE.start.isoformat(),
                 "end": BRIDGE_CLOSURE.end.isoformat(),
+                "closed_to": BRIDGE_CLOSURE.closed_to,
             },
         ]
 
@@ -90,10 +91,11 @@ class TestDeserializeBridgeClosuresFromJSON:
 
         assert result.fetched_at == mock_parse_london_datetime.return_value
 
-    def test_returns_each_closure_with_its_parsed_start_and_end(
+    def test_returns_each_closure_with_its_parsed_times_and_closed_to(
         self,
         mock_parse_london_datetime,
     ):
+        closed_to = ClosedTo.VEHICLES
         payload = json.dumps(
             {
                 "fetched_at": FETCHED_AT.isoformat(),
@@ -101,6 +103,7 @@ class TestDeserializeBridgeClosuresFromJSON:
                     {
                         "start": BRIDGE_CLOSURE.start.isoformat(),
                         "end": BRIDGE_CLOSURE.end.isoformat(),
+                        "closed_to": closed_to,
                     },
                 ],
             },
@@ -116,4 +119,6 @@ class TestDeserializeBridgeClosuresFromJSON:
 
         result = deserialize_bridge_closures_from_json(payload)
 
-        assert result.closures == [BridgeClosure(start=parsed_start, end=parsed_end)]
+        assert result.closures == [
+            BridgeClosure(start=parsed_start, end=parsed_end, closed_to=closed_to),
+        ]
