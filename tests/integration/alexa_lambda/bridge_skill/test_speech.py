@@ -5,6 +5,7 @@ from datetime import datetime
 from bridge_closure import LONDON_TZ, BridgeClosure, ClosedTo
 from bridge_skill._speech import (
     _BRIDGE_NAME,
+    _CLOSED_TO_WORDING,
     _NO_UPCOMING_SPEECH,
     _STALE_AFTER,
     _STALE_SPEECH,
@@ -195,4 +196,32 @@ class TestDescribeBridgeClosures:
             f"The {_BRIDGE_NAME} is open now. "
             "It closes today from 3pm to 4pm. "
             "It closes tomorrow from 9am to 12:30pm, and again from 2pm to 3pm."
+        )
+
+    def test_closures_for_different_traffic_on_one_day_are_described_in_start_order(
+        self,
+    ):
+        cached = CachedBridgeClosures(
+            closures=[
+                BridgeClosure(
+                    start=datetime(2026, 9, 29, 18, tzinfo=LONDON_TZ),
+                    end=datetime(2026, 9, 30, 6, tzinfo=LONDON_TZ),
+                    closed_to=ClosedTo.VEHICLES,
+                ),
+                BridgeClosure(
+                    start=datetime(2026, 9, 29, 15, tzinfo=LONDON_TZ),
+                    end=datetime(2026, 9, 29, 16, tzinfo=LONDON_TZ),
+                    closed_to=ClosedTo.EVERYONE,
+                ),
+            ],
+            fetched_at=_NOW,
+        )
+
+        result = describe_bridge_closures(cached, now=_NOW)
+
+        assert result == (
+            f"The {_BRIDGE_NAME} is open now. "
+            "It closes today from 3pm to 4pm. "
+            f"It closes{_CLOSED_TO_WORDING[ClosedTo.VEHICLES]} today "
+            "from 6pm until 6am the next day."
         )

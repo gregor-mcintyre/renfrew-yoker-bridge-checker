@@ -1,9 +1,12 @@
 from datetime import date, datetime, timedelta
 from unittest.mock import Mock, call, patch
 
+import pytest
+
 from bridge_closure import LONDON_TZ, BridgeClosure, ClosedTo
 from bridge_skill._speech import (
     _BRIDGE_NAME,
+    _CLOSED_TO_WORDING,
     _NO_UPCOMING_SPEECH,
     _STALE_AFTER,
     _STALE_SPEECH,
@@ -33,19 +36,24 @@ _STATUS_TEXT = "status text"
 _DAY_TEXT = "day text"
 
 
-def _closure_starting_at(start: datetime) -> BridgeClosure:
+def _closure_starting_at(
+    start: datetime,
+    *,
+    closed_to: ClosedTo = ClosedTo.EVERYONE,
+) -> BridgeClosure:
     """Builds a closure that lasts one hour.
 
     Args:
         start: The date and time the closure starts.
+        closed_to: Who the bridge is closed to.
 
     Returns:
-        A closure from `start` to one hour later, closed to everyone.
+        A closure from `start` to one hour later, closed to `closed_to`.
     """
     return BridgeClosure(
         start=start,
         end=start + timedelta(hours=1),
-        closed_to=ClosedTo.EVERYONE,
+        closed_to=closed_to,
     )
 
 
@@ -212,6 +220,25 @@ class TestDescribeStatus:
 
         mock_format_reopening.assert_called_once_with(in_progress.end, now=_NOW)
 
+    @pytest.mark.parametrize("closed_to", [ClosedTo.VEHICLES, ClosedTo.PEDESTRIANS])
+    def test_closure_for_some_traffic_says_who_the_bridge_is_closed_to(
+        self,
+        mock_format_reopening,
+        closed_to,
+    ):
+        closure = _closure_starting_at(
+            _NOW - timedelta(minutes=30),
+            closed_to=closed_to,
+        )
+
+        result = _describe_status([closure], now=_NOW)
+
+        expected = (
+            f"The {_BRIDGE_NAME} is closed{_CLOSED_TO_WORDING[closed_to]} now, until "
+            f"{mock_format_reopening.return_value}."
+        )
+        assert result == expected
+
     def test_says_the_bridge_is_closed_until_it_reopens(self, mock_format_reopening):
         closure = _closure_starting_at(_NOW - timedelta(minutes=30))
 
@@ -325,6 +352,24 @@ class TestDescribeDay:
         _describe_day(closures, today=_NOW.date())
 
         mock_join_windows.assert_called_once_with(["first window", "second window"])
+
+    @pytest.mark.parametrize("closed_to", [ClosedTo.VEHICLES, ClosedTo.PEDESTRIANS])
+    def test_closures_for_some_traffic_say_who_the_bridge_closes_to(
+        self,
+        mock_format_day,
+        mock_format_window,
+        mock_join_windows,
+        closed_to,
+    ):
+        closure = _closure_starting_at(_NOW, closed_to=closed_to)
+
+        result = _describe_day([closure], today=_NOW.date())
+
+        expected = (
+            f"It closes{_CLOSED_TO_WORDING[closed_to]} {mock_format_day.return_value} "
+            f"{mock_join_windows.return_value}."
+        )
+        assert result == expected
 
     def test_describes_the_day_and_the_joined_windows(
         self,
@@ -475,6 +520,27 @@ class TestDescribeBridgeClosures:
         describe_bridge_closures(cached, now=_NOW)
 
         mock_describe_day.assert_called_once_with([first, second], today=_NOW.date())
+
+    def test_closures_on_one_day_for_different_traffic_are_described_separately(
+        self,
+        mock_describe_status,
+        mock_describe_day,
+    ):
+        first = _closure_starting_at(_NOW + timedelta(hours=1))
+        second = _closure_starting_at(
+            _NOW + timedelta(hours=2),
+            closed_to=ClosedTo.VEHICLES,
+        )
+        third = _closure_starting_at(_NOW + timedelta(hours=3))
+        cached = CachedBridgeClosures(closures=[first, second, third], fetched_at=_NOW)
+
+        describe_bridge_closures(cached, now=_NOW)
+
+        assert mock_describe_day.call_args_list == [
+            call([first], today=_NOW.date()),
+            call([second], today=_NOW.date()),
+            call([third], today=_NOW.date()),
+        ]
 
     def test_sorts_the_closures_of_a_day_by_start(
         self,
