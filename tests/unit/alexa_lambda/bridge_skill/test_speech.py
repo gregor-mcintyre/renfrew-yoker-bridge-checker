@@ -253,7 +253,27 @@ class TestDescribeStatus:
 
 @patch(_FORMAT_TIME)
 class TestFormatWindow:
-    def test_closure_ending_the_next_day_says_the_next_day(self, mock_format_time):
+    def test_closure_starting_tomorrow_and_ending_the_day_after_says_the_next_day(
+        self,
+        mock_format_time,
+    ):
+        start = datetime(2026, 9, 30, 22, tzinfo=LONDON_TZ)
+        closure = BridgeClosure(
+            start=start,
+            end=start + timedelta(hours=3),
+            closed_to=ClosedTo.EVERYONE,
+        )
+
+        _stub_time_text(mock_format_time, closure)
+
+        result = _format_window(closure, today=_NOW.date())
+
+        assert result == f"from {_START_TEXT} until {_END_TEXT} the next day"
+
+    def test_closure_starting_today_and_ending_tomorrow_says_tomorrow(
+        self,
+        mock_format_time,
+    ):
         start = datetime(2026, 9, 29, 22, tzinfo=LONDON_TZ)
         closure = BridgeClosure(
             start=start,
@@ -263,16 +283,16 @@ class TestFormatWindow:
 
         _stub_time_text(mock_format_time, closure)
 
-        result = _format_window(closure)
+        result = _format_window(closure, today=_NOW.date())
 
-        assert result == f"from {_START_TEXT} until {_END_TEXT} the next day"
+        assert result == f"from {_START_TEXT} until {_END_TEXT} tomorrow"
 
     def test_formats_the_start_and_end_times(self, mock_format_time):
         closure = _closure_starting_at(_NOW)
 
         _stub_time_text(mock_format_time, closure)
 
-        _format_window(closure)
+        _format_window(closure, today=_NOW.date())
 
         assert mock_format_time.call_args_list == [
             call(closure.start),
@@ -284,7 +304,7 @@ class TestFormatWindow:
 
         _stub_time_text(mock_format_time, closure)
 
-        result = _format_window(closure)
+        result = _format_window(closure, today=_NOW.date())
 
         assert result == f"from {_START_TEXT} to {_END_TEXT}"
 
@@ -334,7 +354,10 @@ class TestDescribeDay:
 
         _describe_day([first, second], today=_NOW.date())
 
-        assert mock_format_window.call_args_list == [call(first), call(second)]
+        assert mock_format_window.call_args_list == [
+            call(first, today=_NOW.date()),
+            call(second, today=_NOW.date()),
+        ]
 
     def test_joins_the_windows_of_every_closure(
         self,

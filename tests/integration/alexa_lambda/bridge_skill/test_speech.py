@@ -223,5 +223,5 @@ class TestDescribeBridgeClosures:
             f"The {_BRIDGE_NAME} is open now. "
             "It closes today from 3pm to 4pm. "
             f"It closes{_CLOSED_TO_WORDING[ClosedTo.VEHICLES]} today "
-            "from 6pm until 6am the next day."
+            "from 6pm until 6am tomorrow."
         )

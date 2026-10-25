@@ -108,21 +108,28 @@ def _describe_status(closures: list[BridgeClosure], *, now: datetime) -> str:
     return f"The {_BRIDGE_NAME} is closed{closed_to} now, until {reopening}."
 
 
-def _format_window(closure: BridgeClosure) -> str:
+def _format_window(closure: BridgeClosure, *, today: date) -> str:
     """Renders the times a closure runs from and to.
 
     Args:
-        closure: The closure to render.
+        closure: The closure to render, which starts today or tomorrow.
+        today: The current date.
 
     Returns:
-        A phrase such as `"from 8:55am to 10am"`. A closure that ends on the next day
-        reads `"from 11pm until 1am the next day"`.
+        A phrase such as `"from 8:55am to 10am"`. A closure that ends on the day after
+        it starts reads `"from 11pm until 1am tomorrow"` when it starts today, or
+        `"from 11pm until 1am the next day"` when it starts tomorrow, as it then ends
+        the day after tomorrow.
     """
     start = _format_time(closure.start)
     end = _format_time(closure.end)
+    end_date = closure.end.date()
 
-    if closure.end.date() == closure.start.date():
+    if end_date == closure.start.date():
         return f"from {start} to {end}"
+
+    if end_date == today + timedelta(days=1):
+        return f"from {start} until {end} tomorrow"
 
     return f"from {start} until {end} the next day"
 
@@ -162,7 +169,7 @@ def _describe_day(closures: list[BridgeClosure], *, today: date) -> str:
     """
     closed_to = _CLOSED_TO_WORDING[closures[0].closed_to]
     day = _format_day(closures[0].start.date(), today=today)
-    windows = [_format_window(closure) for closure in closures]
+    windows = [_format_window(closure, today=today) for closure in closures]
 
     return f"It closes{closed_to} {day} {_join_windows(windows)}."
 
